@@ -19,13 +19,20 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "Controller.h"
+
 #ifndef _UI_H_
 #define _UI_H_
 
 class UI {
     public:
-        virtual void Main();
-}
+        UI();
+        UI(ControllerThread * tcontroller);
+        virtual void Initialize() = 0;
+        virtual void Main() = 0;
+    protected:
+        ControllerThread * controller;
+};
 
 #endif  // _UI_H
 

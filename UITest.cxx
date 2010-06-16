@@ -23,3 +23,14 @@
 
 #define new PNEW
 
+UITest::UITest() {
+}
+
+UITest::UITest(ControllerThread * tcontroller) {
+}
+
+void UITest::Initialize() {
+}
+
+void UITest::Main() {
+}

@@ -23,3 +23,5 @@
 
 #define new PNEW
 
+UI::UI() {
+}

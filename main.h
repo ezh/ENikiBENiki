@@ -33,18 +33,17 @@ class ENikiBeNikiProcess : public PProcess
     public:
         /* Constructor, which initalises version number, application name etc */
         ENikiBeNikiProcess();
-        Uint32 time_left(Uint32 next_time);
         /*
          * Execution starts here, where the command line is processed. In here, the
          * child threads (for generating and consuming data) are launched.
          */
         void Main();
-    
+
     protected:
         /* serial communication*/
         PSerialChannel serial;
     private:
-        PBoolean InitialiseSerial(PConfigArgs & args);
+        PBoolean InitializeSerial(PConfigArgs & args);
 };
 
 

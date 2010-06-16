@@ -1,8 +1,8 @@
 PROG		= ENikiBENiki
-SOURCES		:= UITest.cxx UI.cxx Controller.cxx main.cxx precompile.cxx
+SOURCES		:= UITest.cxx UIDefault.cxx UI.cxx Controller.cxx main.cxx precompile.cxx
 
 ifndef PTLIBDIR
-PTLIBDIR=ptlib
+PTLIBDIR=external/ptlib
 endif
 
 include $(PTLIBDIR)/make/ptlib.mak

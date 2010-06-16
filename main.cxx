@@ -20,12 +20,17 @@
  ***************************************************************************/
 
 #include <ptlib.h>
+#include <map>
+#include <string>
 
-#include "SDL.h"
 
 #include "main.h"
 #include "version.h"
 #include "Controller.h"
+//
+#include "UI.h"
+#include "UITest.h"
+#include "UIDefault.h"
 
 #define new PNEW
 
@@ -35,10 +40,17 @@ PCREATE_PROCESS(ENikiBeNikiProcess);
 ///////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
+// Value-Defintions of the different String values
+enum UIStringValue { uiDefault, 
+                          uiTest};
+// Map to associate the ui strings with the enum values
+static std::map<std::string, UIStringValue> mapUIStringValues;
 
 ENikiBeNikiProcess::ENikiBeNikiProcess()
   : PProcess("ENiki and BeNiki", "gamepad fun mod", MAJOR_VERSION, MINOR_VERSION, BUILD_TYPE, BUILD_NUMBER)
 {
+    mapUIStringValues["default"] = uiDefault;
+    mapUIStringValues["test"] = uiTest;
     //serial.SetReadTimeout(0); // timeout 0 ms
 }
 
@@ -47,16 +59,7 @@ void ENikiBeNikiProcess::Main()
     PConfigArgs args(GetArguments());
     PStringStream progName;
     ControllerThread *controller;
-    //The images
-    SDL_Surface* hello = NULL;
-    SDL_Surface* screen = NULL;
-    //The event structure that will be used
-    SDL_Event event;
-    //Make sure the program waits for a quit
-    bool quit = false;
-    // x y
-    signed short x = 0;
-    signed short y = 0;
+    UI *ui;
     
     args.Parse(
 #if PTRACING
@@ -66,6 +69,7 @@ void ENikiBeNikiProcess::Main()
 #ifdef PMEMORY_CHECK
             "-setallocationbreakpoint:"
 #endif
+            "u-ui:"
             "-baud:"
             "-databits:"
             "-parity:"
@@ -107,6 +111,7 @@ void ENikiBeNikiProcess::Main()
 #ifdef PMEMORY_CHECK
             <<  "     --setallocationbreakpoint   stop program on allocation of memory block number" << endl
 #endif
+            <<  "-u   --ui                        UI type" << endl
             <<  "     --baud                      Set the data rate for serial comms" << endl
             <<  "     --databits                  Set the number of data bits (5, 6, 7, 8)" << endl
             <<  "     --parity                    Set parity, even, odd or none " << endl
@@ -125,90 +130,32 @@ void ENikiBeNikiProcess::Main()
 
 */
     // serial communication
-    if (!InitialiseSerial(args)) {
-        cout << "failed to initialise the program" << endl;
+    if (!InitializeSerial(args)) {
+        cout << "failed to initialize the program" << endl;
         PThread::Sleep(100);
         return;
     };
     cout << "timer resolution reported as " << PTimer::Resolution() << "ms" << endl;
     controller = new ControllerThread(&serial);
-    //Start SDL
-    SDL_Init(SDL_INIT_EVERYTHING);
-    //Set up screen
-    screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
-    //If there was an error in setting up the screen
-    if( screen == NULL ) {
-        return;
+    switch(mapUIStringValues[(const char *)args.GetOptionString('u')]) {
+        case uiTest:
+            ui = new UITest(controller);
+            break;
+        default:
+            ui = new UIDefault(controller);
+            break;
     };
-    //Set the window caption
-    SDL_WM_SetCaption( "ENikiBeNiki", NULL ); 
-    //Load image
-    hello = SDL_LoadBMP("back.bmp");
-    //Apply image to screen
-    SDL_BlitSurface( hello, NULL, screen, NULL );
-    //Update Screen
-    SDL_Flip(screen);
-    //While the user hasn't quit
-    while( quit == false ) {
-        Uint8 *keys = SDL_GetKeyState(NULL);
-        if (keys[SDLK_ESCAPE] == SDL_PRESSED){
-            quit = true;
-        }
-        //If there's an event to handle
-        if(SDL_PollEvent(&event) == 1) {
-            //If a key was pressed
-            if( event.type == SDL_KEYDOWN )
-            {
-                //Set the proper message surface
-                switch( event.key.keysym.sym )
-                {
-                    case SDLK_UP:
-                        y+=5;
-                        cout << "UP y: " << (int)y << endl;
-                        controller->pushAction(3, y);
-                        break;
-                    case SDLK_DOWN:
-                        y-=5;
-                        cout << "DOWN y: " << (int)y << endl;
-                        controller->pushAction(3, y);
-                        break;
-                    case SDLK_LEFT:
-                        x-=5;
-                        cout << "LEFT x: " << (int)x << endl;
-                        controller->pushAction(2, x);
-                        break;
-                    case SDLK_RIGHT:
-                        x+=5;
-                        cout << "RIGHT x: " << (int)x << endl;
-                        controller->pushAction(2, x);
-                        break;
-                }
-                fflush(stdout);
-            }
-            //If the user has Xed out the window
-            else if( event.type == SDL_QUIT ) {
-                //Quit the program
-                quit = true;
-            }
-        }
-        SDL_Delay(1);
-    }
-    //Free the loaded image
-    SDL_FreeSurface(hello);
-    //Quit SDL
-    SDL_Quit(); 
+    ui->Initialize();
+    ui->Main();
     // Clean up
     controller->Stop();
     controller->WaitForTermination();
-    cout << "Thread 1 terminated" << endl;
-    //UserInterfaceThread *ui = new UserInterfaceThread(*this);
-    //SerialInterfaceThread *si = new SerialInterfaceThread(*this);
-    //ui->WaitForTermination();
+    cout << "main thread terminated seccessful" << endl;
     serial.Close();
     delete controller;
 }
 
-PBoolean ENikiBeNikiProcess::InitialiseSerial(PConfigArgs & args)
+PBoolean ENikiBeNikiProcess::InitializeSerial(PConfigArgs & args)
 {
     PString flow;
     PINDEX dataBits;

@@ -19,20 +19,34 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "SDL.h"
+
 #include "UI.h"
 
-#ifndef _UITest_H_
-#define _UITest_H_
+#ifndef _UIDefault_H_
+#define _UIDefault_H_
 
-class UITest : public UI {
+class UIDefault : public UI {
     public:
-        UITest();
-        UITest(ControllerThread * controller);
+        UIDefault();
+        UIDefault(ControllerThread * controller);
+        ~UIDefault();
         void Initialize();
         void Main();
+    private:
+        //The images
+        SDL_Surface * hello;
+        SDL_Surface * screen;
+        //The event structure that will be used
+        SDL_Event event;
+        //Make sure the program waits for a quit
+        bool quit;
+        // x y
+        signed short x;
+        signed short y;
 };
 
-#endif  // _UITest_H
+#endif  // _UIDefault_H
 
 // End of File ///////////////////////////////////////////////////////////////
 // vim:ft=c:ts=4:sw=4
