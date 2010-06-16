@@ -1,5 +1,5 @@
 PROG		= ENikiBENiki
-SOURCES		:= Controller.cxx main.cxx precompile.cxx
+SOURCES		:= UITest.cxx UI.cxx Controller.cxx main.cxx precompile.cxx
 
 ifndef PTLIBDIR
 PTLIBDIR=ptlib
