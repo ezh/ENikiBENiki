@@ -19,11 +19,48 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "UI.h"
+#include <ptlib.h>
+#include "physfs.h"
+#include "SDL.h"
+
+#include "ResourceRO.h"
 
 #define new PNEW
 
-UI::UI(ControllerThread * _controller, Resources * _resources) {
-    controller = _controller;
-    resources  = _resources;
+Resource::Resource(PHYSFS_file* newfile) : file(newfile) {
 }
+
+Resource::~Resource() {
+    PHYSFS_close(file);
+}
+
+bool Resource::eof() {
+    return PHYSFS_eof(file);
+}
+
+int64_t Resource::tell() {
+    return PHYSFS_tell(file);
+}
+
+void Resource::seek(uint64_t position) {
+    if(!PHYSFS_seek(file, position)) {
+     //   throw Exception("Seek operation failed: %s", PHYSFS_getLastError());
+    }
+}
+
+int64_t Resource::fileLength() {
+    return PHYSFS_fileLength(file);
+}
+
+void Resource::setBuffer(uint64_t bufsize) {
+    if(!PHYSFS_setBuffer(file, bufsize)) {
+        //        throw Exception("couldn't adjust buffer size: %s",
+          //              PHYSFS_getLastError());
+    };
+}
+
+void Resource::flush()
+{
+    PHYSFS_flush(file); // no exception - what should an app do if flush fails?
+}
+

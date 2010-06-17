@@ -19,11 +19,12 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "UI.h"
+#include <ptlib.h>
+#include "physfs.h"
+
+#include "ResourceWO.h"
 
 #define new PNEW
 
-UI::UI(ControllerThread * _controller, Resources * _resources) {
-    controller = _controller;
-    resources  = _resources;
+ResourceWO::ResourceWO(PHYSFS_file* file) {
 }

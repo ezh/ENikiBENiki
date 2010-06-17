@@ -19,23 +19,47 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "Controller.h"
-#include "Resources.h"
+#include "ResourceRO.h"
+#include "ResourceWO.h"
 
-#ifndef _UI_H_
-#define _UI_H_
+#ifndef _Resources_H_
+#define _Resources_H_
 
-class UI {
+class Resources {
     public:
-        UI(ControllerThread * _controller, Resources * _resources);
-        virtual void Initialize() = 0;
-        virtual void Main() = 0;
+        Resources(PString & _resourceExt);
+        ~Resources();
+        bool Open(PString & argv0, PString & application);
+        bool Close();
+        SDL_Surface * loadImage(PString & imageName);
+        //int * loadFile(char *fileName, int *fileSize);
+        ResourceRO* retrieveRead(PString & filename);
+        ResourceWO* retrieveAppend(PString & filename);
+        ResourceWO* retrieveWrite(PString & filename);
     protected:
-        ControllerThread * controller;
-        Resources * resources;
+        /// remember to call freeList()
+        char** enumerateFiles(const char* directory);
+        static char** enumerateFiles(const std::string& directory);
+        void freeList(char** list);
+        bool mkdir(const char* dirname);
+        bool remove(const char* filename);
+        bool exists(const char* filename);
+        bool isDirectory(const char* filename);
+        bool isSymbolicLink(const char* filename);
+        int64_t getLastModTime(const char* filename);
+    private:
+        bool addToSearchPath(const char* dir, bool append = true);
+        bool removeFromSearchPath(const char* dir);
+        const char* getRealDir(const char* filename);
+        std::string getRealName(const char* filename);
+        std::string getRealWriteName(const char* filename);
+
+        bool fOpen;
+        PString resourceName;
+        PString resourceExt;
 };
 
-#endif  // _UI_H
+#endif  // _Resources_H
 
 // End of File ///////////////////////////////////////////////////////////////
 // vim:ft=c:ts=4:sw=4

@@ -19,11 +19,29 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "UI.h"
+#include <ptlib.h>
+#include "physfs.h"
 
-#define new PNEW
+#ifndef _Resource_H_
+#define _Resource_H_
 
-UI::UI(ControllerThread * _controller, Resources * _resources) {
-    controller = _controller;
-    resources  = _resources;
-}
+class Resource {
+    public:
+        ~Resource();
+        bool eof();
+        int64_t tell();
+        void seek(uint64_t position);
+        int64_t fileLength();
+        // conveniance function, since I think this name is more c++ typic
+        int64_t length();
+        void setBuffer(uint64_t bufsize);
+        void flush();
+    protected:
+        Resource(PHYSFS_file* file);
+        PHYSFS_file * file;
+};
+
+#endif  // _Resource_H
+
+// End of File ///////////////////////////////////////////////////////////////
+// vim:ft=c:ts=4:sw=4

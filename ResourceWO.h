@@ -19,11 +19,42 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "UI.h"
+#include <ptlib.h>
+#include "Resource.h"
 
-#define new PNEW
+#ifndef _ResourceWO_H_
+#define _ResourceWO_H_
 
-UI::UI(ControllerThread * _controller, Resources * _resources) {
-    controller = _controller;
-    resources  = _resources;
-}
+class ResourceWO {
+    public:
+        ResourceWO(PHYSFS_file* file);
+//        void write(const void* buffer, size_t objsize, size_t objcount);
+
+//        void write8(Sint8 val);
+
+//        void writeSLE16(Sint16 val);
+//        void writeULE16(Uint16 val);
+//        void writeSBE16(Sint16 val);
+//        void writeUBE16(Uint16 val);
+
+//        void writeSLE32(Sint32 val);
+//        void writeULE32(Uint32 val);
+//        void writeSBE32(Sint32 val);
+//        void writeUBE32(Uint32 val);
+
+//        void writeSLE64(int64_t val);
+//        void writeULE64(uint64_t val);
+//        void writeSBE64(int64_t val);
+//        void writeUBE64(uint64_t val);
+
+        /// writes the text in the buffer and an additional newline
+//        void writeLine(const std::string& line);
+
+        /** for inernal use only */
+//        WriteFile();
+};
+
+#endif  // _ResourceWO_H
+
+// End of File ///////////////////////////////////////////////////////////////
+// vim:ft=c:ts=4:sw=4

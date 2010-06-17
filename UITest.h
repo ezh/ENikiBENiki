@@ -19,6 +19,9 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "SDL.h"
+#include "SDL_ttf.h" 
+
 #include "UI.h"
 
 #ifndef _UITest_H_
@@ -26,10 +29,34 @@
 
 class UITest : public UI {
     public:
-        UITest();
-        UITest(ControllerThread * controller);
+        UITest(ControllerThread * _controller, Resources * _resources);
+        ~UITest();
         void Initialize();
         void Main();
+    private:
+        void eventMouseDown();
+        void eventMouseMotion();
+        void eventKeyDown();
+        void eventQuit();
+        void apply_surface(int x,int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip);
+        //The images
+        SDL_Surface * hello;
+        SDL_Surface * dot;
+        SDL_Surface * screen;
+        //The event structure that will be used
+        SDL_Event event;
+        //Make sure the program waits for a quit
+        bool quit;
+        // x y
+        signed short x;
+        signed short y;
+        // grab flag
+        bool fMouseGrab;
+        // control box
+        SDL_Rect boxMainField; 
+        //PString fontName;
+        TTF_Font * font;
+        SDL_Color textColor;
 };
 
 #endif  // _UITest_H

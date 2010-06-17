@@ -27,6 +27,7 @@
 #include "main.h"
 #include "version.h"
 #include "Controller.h"
+#include "Resources.h"
 //
 #include "UI.h"
 #include "UITest.h"
@@ -60,6 +61,10 @@ void ENikiBeNikiProcess::Main()
     PStringStream progName;
     ControllerThread *controller;
     UI *ui;
+    Resources *resources;
+    PString resourceExt("res");
+    PString appName(GetName());
+    PString appExec(GetFile());
     
     args.Parse(
 #if PTRACING
@@ -135,19 +140,25 @@ void ENikiBeNikiProcess::Main()
         PThread::Sleep(100);
         return;
     };
+
     cout << "timer resolution reported as " << PTimer::Resolution() << "ms" << endl;
     controller = new ControllerThread(&serial);
+    resources = new Resources(resourceExt);
+    if (!resources->Open(appExec, appName)) {
+        return;
+    };
     switch(mapUIStringValues[(const char *)args.GetOptionString('u')]) {
         case uiTest:
-            ui = new UITest(controller);
+            ui = new UITest(controller, resources);
             break;
         default:
-            ui = new UIDefault(controller);
+            ui = new UIDefault(controller, resources);
             break;
     };
     ui->Initialize();
     ui->Main();
     // Clean up
+    resources->Close();
     controller->Stop();
     controller->WaitForTermination();
     cout << "main thread terminated seccessful" << endl;

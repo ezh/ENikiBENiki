@@ -29,7 +29,7 @@
 class UIDefault : public UI {
     public:
         UIDefault();
-        UIDefault(ControllerThread * controller);
+        UIDefault(ControllerThread * _controller, Resources * _resources);
         ~UIDefault();
         void Initialize();
         void Main();

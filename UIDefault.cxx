@@ -20,11 +20,10 @@
  ***************************************************************************/
 
 #include "UIDefault.h"
-#include "Controller.h"
 
 #define new PNEW
 
-UIDefault::UIDefault() {
+UIDefault::UIDefault(ControllerThread * _controller, Resources * _resources) : UI(_controller, _resources) {
     //Start SDL
     SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -33,18 +32,6 @@ UIDefault::UIDefault() {
     quit   = false;
     x      = 0;
     y      = 0;
-}
-
-UIDefault::UIDefault(ControllerThread * tcontroller) {
-    //Start SDL
-    SDL_Init(SDL_INIT_EVERYTHING);
-
-    hello  = NULL;
-    screen = NULL;
-    quit   = false;
-    x      = 0;
-    y      = 0;
-    controller = tcontroller;
 }
 
 UIDefault::~UIDefault() {

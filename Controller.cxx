@@ -57,7 +57,7 @@ void ControllerThread::Main() {
         /*
          * get x, y, button and other events
          */
-        PTRACE(5, "Main\tactions before population:"); dumpAction();
+        PTRACE(6, "Main\tactions before population:"); dumpAction();
         while(popAction(buffer)) {
             PWORDArray * actions;
             WORD value;
@@ -66,16 +66,16 @@ void ControllerThread::Main() {
             actions = action[buffer[0]];
             value = buffer[1] << 8;
             value += buffer[2];
-            PTRACE(4, "Main\tadd action: " << (int)buffer[0] << " for buffer with size " << actions->GetSize());
+            PTRACE(6, "Main\tadd action: " << (int)buffer[0] << " for buffer with size " << actions->GetSize());
             actions->SetAt(actions->GetSize(), value);
         };
         if (fWork) {
             /*
              * process actions
              */
-            PTRACE(4, "Main\tactions after population:"); dumpAction();
+            PTRACE(6, "Main\tactions after population:"); dumpAction();
             summarizeActions(); // summarize action events by type
-            PTRACE(4, "Main\tactions after summarization:"); dumpAction();
+            PTRACE(6, "Main\tactions after summarization:"); dumpAction();
             /*
              * send current state to arduino
              * then receive state from arduino
@@ -83,7 +83,7 @@ void ControllerThread::Main() {
              */
             processActions();
         } else {
-            PTRACE(5, "Main\tskip step - no action events");
+            PTRACE(7, "Main\tskip step - no action events");
         };
         /*
          * wait next 10ms
@@ -98,12 +98,12 @@ void ControllerThread::Main() {
         };
         // step was too long (tThen less than tNow)
         if (tNow.Compare(tThen) != LessThan) {
-            PTRACE(3, "Main\tnow: " << tNow.AsString("h:m:s.uuuu") << " then: " << tThen.AsString("h:m:s.uuuu") << " i: " << (int)i << " diff: " << (tNow - tThen).GetMilliSeconds() << "ms");
+            PTRACE(6, "Main\tnow: " << tNow.AsString("h:m:s.uuuu") << " then: " << tThen.AsString("h:m:s.uuuu") << " i: " << (int)i << " diff: " << (tNow - tThen).GetMilliSeconds() << "ms");
             i += (tNow - tThen).GetMilliSeconds() / tStep.GetMilliSeconds() + 1; // number of steps + 1 step
             tThen = tBase + tStep * i;
-            PTRACE(3, "Main\tcorrected then: " << tThen.AsString("h:m:s.uuuu") << " i: " << (int)i);
+            PTRACE(6, "Main\tcorrected then: " << tThen.AsString("h:m:s.uuuu") << " i: " << (int)i);
         };
-        PTRACE(5, "Main\tstep " << (tThen - tNow).GetMilliSeconds() << "ms"); 
+        PTRACE(7, "Main\tstep " << (tThen - tNow).GetMilliSeconds() << "ms"); 
     } while(!shutdown.Wait((tThen - tNow).GetMilliSeconds()));
 }
 
