@@ -30,7 +30,7 @@
 ResourceRO::ResourceRO(PHYSFS_file* file) : Resource(file) {
 };
 
-SDL_RWops* ResourceRO::getSDLRWOps() {
+SDL_RWops* ResourceRO::GetSDLRWOps() {
     SDL_RWops * rwops = (SDL_RWops*) malloc(sizeof(SDL_RWops));
     memset(rwops, 0, sizeof(SDL_RWops));
     rwops->read = RWOps_Read;

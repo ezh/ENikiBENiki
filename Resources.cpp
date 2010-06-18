@@ -155,7 +155,7 @@ void Resources::freeList(char** list) {
     PHYSFS_freeList(list);
 }
 
-ResourceWO * Resources::retrieveWrite(PString & filename) {
+ResourceWO * Resources::RetrieveWrite(PString & filename) {
     PHYSFS_file* file = PHYSFS_openWrite(filename);
     if(!file) {
         PError << "couldn't open file '" << filename << "' for writing: " << PHYSFS_getLastError() << endl;
@@ -164,7 +164,7 @@ ResourceWO * Resources::retrieveWrite(PString & filename) {
     return new ResourceWO(file);
 }
 
-ResourceRO * Resources::retrieveRead(PString & filename) {
+ResourceRO * Resources::RetrieveRead(PString & filename) {
     PHYSFS_file* file = PHYSFS_openRead(filename);
     if(!file) {
 		int fn_length = filename.GetLength()+1;
@@ -201,7 +201,7 @@ ResourceRO * Resources::retrieveRead(PString & filename) {
     return new ResourceRO(file);
 }
 
-ResourceWO * Resources::retrieveAppend(PString & filename) {
+ResourceWO * Resources::RetrieveAppend(PString & filename) {
     PHYSFS_file* file = PHYSFS_openAppend(filename);
     if(!file) {
         PError << "couldn't open file '" << filename << "' for writing(append): %s" << PHYSFS_getLastError() << endl;
@@ -247,13 +247,31 @@ int64_t Resources::getLastModTime(const char* filename) {
     return modtime;
 }
 
-SDL_Surface * Resources::loadImage(PString & imageName) {
+SDL_Surface * Resources::LoadImage(PString & imageName) {
     PTRACE(4, "load image '" << imageName << "' from resources");
     SDL_Surface * imageSurface = 0;
-    ResourceRO * imageFile = retrieveRead(imageName);
-    SDL_RWops * rw = imageFile->getSDLRWOps();
+    ResourceRO * imageFile = RetrieveRead(imageName);
+    if (!imageFile)
+        return NULL;
+    SDL_RWops * rw = imageFile->GetSDLRWOps();
+    if (!rw)
+        return NULL;
     imageSurface = SDL_LoadBMP_RW(rw, 0);
     return imageSurface;
+}
+
+SDL_Surface * Resources::LoadImageOptimized(PString & imageName) {
+    SDL_Surface * imageSurface = 0;
+    SDL_Surface * optimizedSurface = 0;
+    
+    imageSurface = LoadImage(imageName);
+    if (!imageSurface)
+        return NULL;
+    //Create an optimized image
+    optimizedSurface = SDL_DisplayFormat(imageSurface);
+    //Free the old surface
+    SDL_FreeSurface(imageSurface);
+    return optimizedSurface;
 }
 //int * ResFile::loadFile(char *fileName, int *fileSize) {
 /*    PHYSFS_file *compFile;

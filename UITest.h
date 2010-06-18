@@ -34,15 +34,20 @@ class UITest : public UI {
         void Initialize();
         void Main();
     private:
+        void UpdateUIAndControls(int x, int y);
         void eventMouseDown();
         void eventMouseMotion();
         void eventKeyDown();
         void eventQuit();
         void apply_surface(int x,int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip);
         //The images
-        SDL_Surface * hello;
-        SDL_Surface * dot;
+        SDL_Surface * background;
+        SDL_Surface * crosshairOn;
+        SDL_Surface * crosshairOff;
+        SDL_Surface * arrowTop;
+        SDL_Surface * arrowRight;
         SDL_Surface * screen;
+        SDL_Surface * digitals[256];
         //The event structure that will be used
         SDL_Event event;
         //Make sure the program waits for a quit

@@ -31,11 +31,12 @@ class Resources {
         ~Resources();
         bool Open(PString & argv0, PString & application);
         bool Close();
-        SDL_Surface * loadImage(PString & imageName);
+        SDL_Surface * LoadImage(PString & imageName);
+        SDL_Surface * LoadImageOptimized(PString & imageName);
         //int * loadFile(char *fileName, int *fileSize);
-        ResourceRO* retrieveRead(PString & filename);
-        ResourceWO* retrieveAppend(PString & filename);
-        ResourceWO* retrieveWrite(PString & filename);
+        ResourceRO* RetrieveRead(PString & filename);
+        ResourceWO* RetrieveAppend(PString & filename);
+        ResourceWO* RetrieveWrite(PString & filename);
     protected:
         /// remember to call freeList()
         char** enumerateFiles(const char* directory);

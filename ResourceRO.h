@@ -56,7 +56,7 @@ class ResourceRO : public Resource {
         // commands. Note that you have to free this structure with SDL_FreeRWops.
         // (Most SDL commands also have a freesrc parameter in their calls which you
         // can simply set to 1)
-        SDL_RWops* getSDLRWOps();
+        SDL_RWops* GetSDLRWOps();
 
         /** for internal use only */
 

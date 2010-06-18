@@ -28,7 +28,6 @@ UITest::UITest(ControllerThread * _controller, Resources * _resources) :
     //Start SDL
     SDL_Init(SDL_INIT_EVERYTHING);
 
-    hello  = NULL;
     screen = NULL;
     quit   = false;
     x      = 0;
@@ -46,29 +45,50 @@ UITest::UITest(ControllerThread * _controller, Resources * _resources) :
 }
 
 UITest::~UITest() {
-    //Free the loaded image
-    SDL_FreeSurface(hello);
-    //Quit SDL
+    // Free the loaded image
+    SDL_FreeSurface(background);
+    SDL_FreeSurface(crosshairOn);
+    SDL_FreeSurface(crosshairOff);
+    SDL_FreeSurface(arrowTop);
+    SDL_FreeSurface(arrowRight);
+    // Quit SDL
     SDL_Quit();
 }
 
 void UITest::Initialize() {
-    PString backgroundName("TestUI.bmp");
-    PString dotName("dot.bmp");
+    PString backgroundName("TestUI/background.bmp");
+    PString crosshairOnName("TestUI/crosshairOn.bmp");
+    PString crosshairOffName("TestUI/crosshairOff.bmp");
+    PString arrowTopName("TestUI/arrow_top.bmp");
+    PString arrowRightName("TestUI/arrow_right.bmp");
     //Set up screen
     screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
     //If there was an error in setting up the screen
     if( screen == NULL ) {
+        PError << "an error in setting up the screen" << endl;
         return;
     };
-    //Set the window caption
+    // set the window caption
     SDL_WM_SetCaption( "ENikiBeNiki", NULL ); 
-    //Load image
-    hello = resources->loadImage(backgroundName);
-    dot = resources->loadImage(dotName);
-    //Apply image to screen
-    SDL_BlitSurface( hello, NULL, screen, NULL );
-    //Update Screen
+    // load images
+    background   = resources->LoadImageOptimized(backgroundName);
+    if (!background) {
+        PError << "an error loading" << endl;
+        return;
+    }
+    crosshairOn  = resources->LoadImageOptimized(crosshairOnName);
+    crosshairOff = resources->LoadImageOptimized(crosshairOffName);
+    arrowTop     = resources->LoadImageOptimized(arrowTopName);
+    arrowRight   = resources->LoadImageOptimized(arrowRightName);
+    // set color keys
+    Uint32 colorkey_crosshairOn = SDL_MapRGB(crosshairOn->format, 0xE5, 0xE5, 0xE5); // Map the color key    
+    SDL_SetColorKey(crosshairOn, SDL_SRCCOLORKEY, colorkey_crosshairOn); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
+    Uint32 colorkey_crosshairOff = SDL_MapRGB(crosshairOff->format, 0xE5, 0xE5, 0xE5); // Map the color key    
+    SDL_SetColorKey(crosshairOff, SDL_SRCCOLORKEY, colorkey_crosshairOff); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
+    //Uint32 colorkey_arrowTop = SDL_MapRGB(arrowTop->format, 0xFF, 0xFF, 0xFF); // Map the color key    
+    //SDL_SetColorKey(arrowTop, SDL_SRCCOLORKEY, colorkey_arrowTop); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
+    //Uint32 colorkey_arrowRight = SDL_MapRGB(arrowRight->format, 0xFF, 0xFF, 0xFF); // Map the color key    
+    //SDL_SetColorKey(arrowRight, SDL_SRCCOLORKEY, colorkey_arrowRight); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
     SDL_Flip(screen);
     if (0 > TTF_Init()) {
         PError << "TTF_Init() failed" << endl;
@@ -79,42 +99,66 @@ void UITest::Initialize() {
         PError << "Font '" << "Vera.ttf" << "'failed" << endl;
         return;
     };
+    for (int i = 0; i < 256;i++) {
+        PString text(i-128);
+        SDL_Surface* generatedImage = TTF_RenderText_Solid(font, text, textColor);
+        if (generatedImage == NULL) {
+            PError << "error in rendering the text" << endl;
+            return;
+        };
+        //Create an optimized image
+        digitals[i] = SDL_DisplayFormat(generatedImage);
+        //Free the old surface
+        SDL_FreeSurface(generatedImage);
+    };
+    UpdateUIAndControls(331, 299);
 }
 
 void UITest::Main() {
     while (quit == false) {
-        if (SDL_PollEvent(&event) == 1) {
-            if (event.type == SDL_MOUSEBUTTONDOWN) {
-                eventMouseDown();
-            } else if (event.type == SDL_MOUSEMOTION) {
-                eventMouseMotion();
-            } else if (event.type == SDL_KEYDOWN) {
-                eventKeyDown();
-            } else if (event.type == SDL_QUIT) {
-                eventQuit();
+        if (SDL_WaitEvent(&event) == 1) {
+            // Check for other mouse motion events in the queue.
+            SDL_Event eventFuture;
+            int num = SDL_PeepEvents( &eventFuture, 1, SDL_PEEKEVENT, SDL_ALLEVENTS );
+            // If this is the same state, ignore this one
+            if (not (num > 0 && eventFuture.type == SDL_MOUSEMOTION &&
+                        eventFuture.motion.state == event.motion.state )) {
+                if (event.type == SDL_MOUSEBUTTONDOWN) {
+                    eventMouseDown();
+                } else if (event.type == SDL_MOUSEMOTION) {
+                    eventMouseMotion();
+                } else if (event.type == SDL_KEYDOWN) {
+                    eventKeyDown();
+                } else if (event.type == SDL_QUIT) {
+                    eventQuit();
+                };
             };
         }
-        SDL_Delay(1);
     }
 }
 
 void UITest::eventMouseDown() {
+    int x = event.button.x;
+    int y = event.button.y; 
     if (fMouseGrab) {
-        fMouseGrab = PFalse;
-        SDL_WM_GrabInput(SDL_GRAB_OFF);
-        SDL_ShowCursor(SDL_ENABLE);
+        // If the left mouse button was pressed
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            fMouseGrab = PFalse;
+            SDL_WM_GrabInput(SDL_GRAB_OFF);
+            //SDL_ShowCursor(SDL_ENABLE);
+            UpdateUIAndControls(x, y);
+        };
     } else {
         // If the left mouse button was pressed
         if (event.button.button == SDL_BUTTON_LEFT) {
             // Get the mouse offsets
-            int x = event.button.x;
-            int y = event.button.y; 
             // If the mouse is over the button
             if ((x > boxMainField.x) && (x < boxMainField.x + boxMainField.w) &&
                     (y > boxMainField.y) && (y < boxMainField.y + boxMainField.h) ) {
                 fMouseGrab = PTrue;
                 SDL_WM_GrabInput(SDL_GRAB_ON);
-                SDL_ShowCursor(SDL_DISABLE);
+                //SDL_ShowCursor(SDL_DISABLE);
+                UpdateUIAndControls(x, y);
             };
         };
     };
@@ -127,44 +171,10 @@ void UITest::eventMouseMotion() {
         // Get the mouse offsets
         x = event.motion.x;
         y = event.motion.y;
-        // add constraint
-        if (x < 190) {
-            x = 190;
-        } else if (x > 470) {
-            x = 470;
-        };
-        if (y < 160) {
-            y = 160;
-        } else if (y > 440) {
-            y = 440;
-        };
-        // subtract shift
-        x -= 190;
-        y -= 160;
-        // normalize x,y
-        signed char xN = (x * 255 / 280) - 128;
-        signed char yN = (((y-280) * -1) * 255 / 280) - 128;
-        PString xtext(xN);
-        PString ytext(yN);
-        SDL_Surface * xval = TTF_RenderText_Solid(font, xtext, textColor);
-        SDL_Surface * yval = TTF_RenderText_Solid(font, ytext, textColor);
-        //If there was an 
-        if (xval == NULL) {
-            PError << "error in rendering the text" << endl;
-            return;
-        };
-        //Apply the images to the screen
-        apply_surface( 0, 0, hello, screen, NULL );
-        apply_surface( 260, 70, xval, screen, NULL );
-        apply_surface( 420, 70, yval, screen, NULL );
-        apply_surface( x + 190 - 10, y + 160 - 10, dot, screen, NULL );
-        //Update the screen
-        if( SDL_Flip( screen ) == -1 ) {
-            return;
-        }
+        UpdateUIAndControls(x, y);
         // Send command to controller
-        controller->pushAction(0, (unsigned char)xN);
-        controller->pushAction(1, (unsigned char)xY);
+        //controller->pushAction(0, (unsigned char)xN);
+        //controller->pushAction(1, (unsigned char)xY);
     };
 }
 
@@ -217,4 +227,38 @@ void UITest::apply_surface( int x, int y, SDL_Surface* source, SDL_Surface* dest
     //Blit
     SDL_BlitSurface( source, clip, destination, &offset );
 }
+
+void UITest::UpdateUIAndControls(int x, int y) {
+    // add constraint
+    if (x <= 191) {
+        x = 192;
+    } else if (x > 470) {
+        x = 470;
+    };
+    if (y < 160) {
+        y = 160;
+    } else if (y >= 439) {
+        y = 438;
+    };
+    // subtract shift
+    x -= 190;
+    y -= 160;
+    // normalize x,y
+    signed char xN = (x * 255 / 280) - 128;
+    signed char yN = (((y-280) * -1) * 255 / 280) - 128;
+    //Apply the images to the screen
+    apply_surface( 0, 0, background, screen, NULL );
+    apply_surface( 260, 70, digitals[xN+128], screen, NULL );
+    apply_surface( 410, 70, digitals[yN+128], screen, NULL );
+    if (fMouseGrab) {
+        apply_surface( x + 190 - 21, y + 160 - 19, crosshairOn, screen, NULL );
+    } else {
+        apply_surface( x + 190 - 21, y + 160 - 19, crosshairOff, screen, NULL );
+    }
+    //Update the screen
+    if( SDL_Flip( screen ) == -1 ) {
+        return;
+    }
+}
+
 
