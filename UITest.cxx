@@ -85,10 +85,10 @@ void UITest::Initialize() {
     SDL_SetColorKey(crosshairOn, SDL_SRCCOLORKEY, colorkey_crosshairOn); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
     Uint32 colorkey_crosshairOff = SDL_MapRGB(crosshairOff->format, 0xE5, 0xE5, 0xE5); // Map the color key    
     SDL_SetColorKey(crosshairOff, SDL_SRCCOLORKEY, colorkey_crosshairOff); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
-    //Uint32 colorkey_arrowTop = SDL_MapRGB(arrowTop->format, 0xFF, 0xFF, 0xFF); // Map the color key    
-    //SDL_SetColorKey(arrowTop, SDL_SRCCOLORKEY, colorkey_arrowTop); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
-    //Uint32 colorkey_arrowRight = SDL_MapRGB(arrowRight->format, 0xFF, 0xFF, 0xFF); // Map the color key    
-    //SDL_SetColorKey(arrowRight, SDL_SRCCOLORKEY, colorkey_arrowRight); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
+    Uint32 colorkey_arrowTop = SDL_MapRGB(arrowTop->format, 0xE5, 0xE5, 0xE5); // Map the color key    
+    SDL_SetColorKey(arrowTop, SDL_SRCCOLORKEY, colorkey_arrowTop); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
+    Uint32 colorkey_arrowRight = SDL_MapRGB(arrowRight->format, 0xE5, 0xE5, 0xE5); // Map the color key    
+    SDL_SetColorKey(arrowRight, SDL_SRCCOLORKEY, colorkey_arrowRight); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
     SDL_Flip(screen);
     if (0 > TTF_Init()) {
         PError << "TTF_Init() failed" << endl;
@@ -246,17 +246,19 @@ void UITest::UpdateUIAndControls(int x, int y) {
     // normalize x,y
     signed char xN = (x * 255 / 280) - 128;
     signed char yN = (((y-280) * -1) * 255 / 280) - 128;
-    //Apply the images to the screen
-    apply_surface( 0, 0, background, screen, NULL );
-    apply_surface( 260, 70, digitals[xN+128], screen, NULL );
-    apply_surface( 410, 70, digitals[yN+128], screen, NULL );
+    // apply the images to the screen
+    apply_surface(0, 0, background, screen, NULL);
+    apply_surface(260, 70, digitals[xN+128], screen, NULL);
+    apply_surface(410, 70, digitals[yN+128], screen, NULL);
+    apply_surface(x - 140 + 298, 102, arrowTop, screen, NULL );
+    apply_surface(464, y - 140 + 269, arrowRight, screen, NULL );
     if (fMouseGrab) {
-        apply_surface( x + 190 - 21, y + 160 - 19, crosshairOn, screen, NULL );
+        apply_surface(x + 190 - 21, y + 160 - 19, crosshairOn, screen, NULL);
     } else {
-        apply_surface( x + 190 - 21, y + 160 - 19, crosshairOff, screen, NULL );
+        apply_surface(x + 190 - 21, y + 160 - 19, crosshairOff, screen, NULL);
     }
-    //Update the screen
-    if( SDL_Flip( screen ) == -1 ) {
+    // update the screen
+    if (SDL_Flip(screen) == -1) {
         return;
     }
 }
