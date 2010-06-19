@@ -40,6 +40,9 @@ class UITest : public UI {
         void eventKeyDown();
         void eventQuit();
         void apply_surface(int x,int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip);
+        // x y
+        int crossX;
+        int crossY;
         //The images
         SDL_Surface * background;
         SDL_Surface * crosshairOn;
@@ -48,17 +51,23 @@ class UITest : public UI {
         SDL_Surface * arrowRight;
         SDL_Surface * screen;
         SDL_Surface * digitals[256];
+        // arrows
+        int arrowOffsetX;
+        int arrowOffsetY;
         //The event structure that will be used
         SDL_Event event;
         //Make sure the program waits for a quit
         bool quit;
-        // x y
-        signed short x;
-        signed short y;
-        // grab flag
-        bool fMouseGrab;
+        /*
+         * grab flag
+         * 0 - none
+         * 1 - main field
+         * 2 - scrollX
+         * 3 - scrollY
+         */
+        int nMouseState;
         // control box
-        SDL_Rect boxMainField; 
+        SDL_Rect boxMainField;
         //PString fontName;
         TTF_Font * font;
         SDL_Color textColor;

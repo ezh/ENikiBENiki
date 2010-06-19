@@ -30,9 +30,9 @@ UITest::UITest(ControllerThread * _controller, Resources * _resources) :
 
     screen = NULL;
     quit   = false;
-    x      = 0;
-    y      = 0;
-    fMouseGrab = PFalse;
+    crossX = 0;
+    crossY = 0;
+    nMouseState = 0;
     // set main field parameters
     boxMainField.x = 190;
     boxMainField.y = 160;
@@ -42,6 +42,9 @@ UITest::UITest(ControllerThread * _controller, Resources * _resources) :
     textColor.r = (BYTE)0;
     textColor.g = (BYTE)0;
     textColor.b = (BYTE)0;
+    // arrow
+    arrowOffsetX = 496;
+    arrowOffsetY = 134;
 }
 
 UITest::~UITest() {
@@ -111,7 +114,7 @@ void UITest::Initialize() {
         //Free the old surface
         SDL_FreeSurface(generatedImage);
     };
-    UpdateUIAndControls(331, 299);
+    UpdateUIAndControls(331, 299); //center
 }
 
 void UITest::Main() {
@@ -140,41 +143,75 @@ void UITest::Main() {
 void UITest::eventMouseDown() {
     int x = event.button.x;
     int y = event.button.y; 
-    if (fMouseGrab) {
+    if (nMouseState == 0 && event.button.button == SDL_BUTTON_RIGHT) {
+        UpdateUIAndControls(331, 299); //center
+        return;
+    };
+    if (nMouseState > 0 && event.button.button == SDL_BUTTON_LEFT) {
         // If the left mouse button was pressed
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            fMouseGrab = PFalse;
-            SDL_WM_GrabInput(SDL_GRAB_OFF);
-            //SDL_ShowCursor(SDL_ENABLE);
+        SDL_WM_GrabInput(SDL_GRAB_OFF);
+        //SDL_ShowCursor(SDL_ENABLE);
+        if (nMouseState == 1) {
+            // main field
+            nMouseState = 0;
             UpdateUIAndControls(x, y);
+        } else if (nMouseState == 2) {
+            // scroll X
+            UpdateUIAndControls(x, crossY);
+        } else if (nMouseState == 3) {
+            // scroll Y
+            UpdateUIAndControls(crossX, y);
         };
-    } else {
-        // If the left mouse button was pressed
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            // Get the mouse offsets
-            // If the mouse is over the button
-            if ((x > boxMainField.x) && (x < boxMainField.x + boxMainField.w) &&
-                    (y > boxMainField.y) && (y < boxMainField.y + boxMainField.h) ) {
-                fMouseGrab = PTrue;
+        nMouseState = 0;
+        return;
+    };
+    if (nMouseState == 0) {
+        // If the mouse is over the main field
+        if ((x > boxMainField.x) && (x < boxMainField.x + boxMainField.w) &&
+                (y > boxMainField.y) && (y < boxMainField.y + boxMainField.h) ) {
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                nMouseState = 1;
                 SDL_WM_GrabInput(SDL_GRAB_ON);
                 //SDL_ShowCursor(SDL_DISABLE);
                 UpdateUIAndControls(x, y);
+            };
+            return;
+        };
+        // If mouse is over the x scroller
+        if ((x > crossX - arrowTop->w/2) && (x < crossX + arrowTop->w/2) &&
+                (y > arrowOffsetY - arrowTop->h/2) && (y < arrowOffsetY + arrowTop->h/2)) {
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                nMouseState = 2;
+                SDL_WM_GrabInput(SDL_GRAB_ON);
+                //SDL_ShowCursor(SDL_DISABLE);
+                UpdateUIAndControls(x, crossY);
+            };
+        };
+        // If mouse is over the y scroller
+        if ((x > arrowOffsetX - arrowRight->w/2) && (x < arrowOffsetX + arrowRight->w/2) &&
+                (y > crossY - arrowRight->h/2) && (y < crossY + arrowRight->h/2)) {
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                nMouseState = 3;
+                SDL_WM_GrabInput(SDL_GRAB_ON);
+                //SDL_ShowCursor(SDL_DISABLE);
+                UpdateUIAndControls(crossX, y);
             };
         };
     };
 }
 
 void UITest::eventMouseMotion() {
-    int x;
-    int y;
-    if (fMouseGrab) {
-        // Get the mouse offsets
-        x = event.motion.x;
-        y = event.motion.y;
+    int x = event.motion.x;
+    int y = event.motion.y;
+    if (nMouseState == 1) {
+        // main field
         UpdateUIAndControls(x, y);
-        // Send command to controller
-        //controller->pushAction(0, (unsigned char)xN);
-        //controller->pushAction(1, (unsigned char)xY);
+    } else if (nMouseState == 2) {
+        // scroll X
+        UpdateUIAndControls(x, crossY);
+    } else if (nMouseState == 3) {
+        // scroll Y
+        UpdateUIAndControls(crossX, y);
     };
 }
 
@@ -186,24 +223,16 @@ void UITest::eventKeyDown() {
             eventQuit();
             break;
         case SDLK_UP:
-            y+=5;
-            cout << "UP y: " << (int)y << endl;
-            controller->pushAction(3, y);
+            UpdateUIAndControls(crossX, crossY-1);
             break;
         case SDLK_DOWN:
-            y-=5;
-            cout << "DOWN y: " << (int)y << endl;
-            controller->pushAction(3, y);
+            UpdateUIAndControls(crossX, crossY+1);
             break;
         case SDLK_LEFT:
-            x-=5;
-            cout << "LEFT x: " << (int)x << endl;
-            controller->pushAction(2, x);
+            UpdateUIAndControls(crossX-1, crossY);
             break;
         case SDLK_RIGHT:
-            x+=5;
-            cout << "RIGHT x: " << (int)x << endl;
-            controller->pushAction(2, x);
+            UpdateUIAndControls(crossX+1, crossY);
             break;
         default:
             break;
@@ -230,37 +259,47 @@ void UITest::apply_surface( int x, int y, SDL_Surface* source, SDL_Surface* dest
 
 void UITest::UpdateUIAndControls(int x, int y) {
     // add constraint
-    if (x <= 191) {
-        x = 192;
-    } else if (x > 470) {
-        x = 470;
+    if (x <= boxMainField.x + 1) {
+        x = boxMainField.x + 2;
+    } else if (x > boxMainField.x + boxMainField.w) {
+        x = boxMainField.x + boxMainField.w;
     };
-    if (y < 160) {
-        y = 160;
+    if (y < boxMainField.y) {
+        y = boxMainField.y;
     } else if (y >= 439) {
         y = 438;
     };
-    // subtract shift
-    x -= 190;
-    y -= 160;
-    // normalize x,y
-    signed char xN = (x * 255 / 280) - 128;
-    signed char yN = (((y-280) * -1) * 255 / 280) - 128;
+    // normalize x,y for controller
+    signed char xN = ((x - boxMainField.x) * 255 / 280) - 128;
+    signed char yN = ((((y - boxMainField.y)-280) * -1) * 255 / 280) - 128;
     // apply the images to the screen
     apply_surface(0, 0, background, screen, NULL);
+    // numbers
     apply_surface(260, 70, digitals[xN+128], screen, NULL);
     apply_surface(410, 70, digitals[yN+128], screen, NULL);
-    apply_surface(x - 140 + 298, 102, arrowTop, screen, NULL );
-    apply_surface(464, y - 140 + 269, arrowRight, screen, NULL );
-    if (fMouseGrab) {
-        apply_surface(x + 190 - 21, y + 160 - 19, crosshairOn, screen, NULL);
+    // arrow
+    apply_surface(x - arrowTop->w/2, arrowOffsetY - arrowTop->h/2, arrowTop, screen, NULL );
+    apply_surface(arrowOffsetX - arrowRight->w/2, y - arrowRight->h/2, arrowRight, screen, NULL );
+    // crosshair
+    if (nMouseState == 1) {
+        // set cross coorinates
+        crossX = x;
+        crossY = y;
+        apply_surface(x - crosshairOn->w/2 - 1, y - crosshairOn->h/2 + 1, crosshairOn, screen, NULL);
+    } else if (nMouseState == 2) {
+        crossX = x;
+        apply_surface(x - crosshairOff->w/2 - 1, y - crosshairOff->h/2 + 1, crosshairOff, screen, NULL);
+    } else if (nMouseState == 3) {
+        crossY = y;
+        apply_surface(x - crosshairOff->w/2 - 1, y - crosshairOff->h/2 + 1, crosshairOff, screen, NULL);
     } else {
-        apply_surface(x + 190 - 21, y + 160 - 19, crosshairOff, screen, NULL);
-    }
+        crossX = x;
+        crossY = y;
+        apply_surface(x - crosshairOff->w/2 - 1, y - crosshairOff->h/2 + 1, crosshairOff, screen, NULL);
+    };
     // update the screen
     if (SDL_Flip(screen) == -1) {
         return;
-    }
+    };
 }
-
 

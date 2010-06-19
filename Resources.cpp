@@ -257,6 +257,7 @@ SDL_Surface * Resources::LoadImage(PString & imageName) {
     if (!rw)
         return NULL;
     imageSurface = SDL_LoadBMP_RW(rw, 0);
+    PTRACE(4, "image width: " << imageSurface->w << ", image height: " << imageSurface->h);
     return imageSurface;
 }
 
