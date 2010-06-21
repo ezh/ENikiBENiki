@@ -19,6 +19,8 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "TimerOne.h" // using Timer1 library from http://www.arduino.cc/playground/Code/Timer1
+
 #define DATAOUT 11//MOSI
 #define DATAIN  12//MISO 
 #define SPICLOCK  13//sck
@@ -27,10 +29,15 @@
 
 uint8_t action_is[256]; // current state
 uint8_t action_want[256]; // requested state
-uint8_t buffer[2]; // global packet storage (1st BYTE: N_action, 2nd BYTE: value, 3rd BYTE: check summ)
+uint8_t buffer[3]; // global packet storage (1st BYTE: N_action, 2nd BYTE: value, 3rd BYTE: check summ)
 int bufferN = 0; // received bytes counter
+int ledPin = 6; // led pin
+bool ledState = false;
+int zeroCounter = 0; // if we got 000 at serial port than reset communication
 
 void setup() {
+    byte clr;
+
     /*
      * initialize serial communication
      */
@@ -43,6 +50,10 @@ void setup() {
         action_want[i] = 0;
     };
     /*
+     * initialize led
+     */
+    pinMode(ledPin, OUTPUT);
+    /*
      * initialize SPI
      */
     pinMode(DATAOUT, OUTPUT);
@@ -51,7 +62,7 @@ void setup() {
     pinMode(SLAVESELECT,OUTPUT);
     pinMode(RST,OUTPUT);
     //digitalWrite(RST,LOW);//reset reostat
-    dgitalWrite(RST,HIGH);
+    digitalWrite(RST,HIGH);
     digitalWrite(SLAVESELECT,HIGH); //disable device
     // SPCR = 01010000
     //interrupt disabled,spi enabled,msb 1st,master,clk low when idle,
@@ -77,9 +88,27 @@ void resetAnalog() {
 }
 
 void setAnalog(uint8_t action, uint8_t value) {
+    switch(action) {
+        case 1: // x
+            value += 128;
+            write_pot(0, (unsigned int)value);
+            break;
+        case 2: // y
+            value += 128;
+            write_pot(1, (unsigned int)value);
+            break;
+        default:
+            break;
+    };
+    
 }
 
-void setDigital(uint8_t action, uint8_t value) {
+byte write_pot(int address, int value) {
+  digitalWrite(SLAVESELECT,LOW);
+  //2 byte opcode
+  spi_transfer(address);
+  spi_transfer(value);
+  digitalWrite(SLAVESELECT,HIGH); //release chip, signal end transfer
 }
 
 void loop() {
@@ -108,7 +137,7 @@ void loop() {
         } else {
             // check summ failed
             /*
-             * write
+             * write 000
              */
             for (int i = 0; i < 3; i++) {
                 Serial.print(0, BYTE);
@@ -121,16 +150,17 @@ void loop() {
 void beat() {
     for (int i = 0; i < 256; i++) {
         // is analog?
-        switch() {
+        switch(i) {
             // analog
-            case 0: // x1
-            case 1: // y1
-            case 2: // x2
-            case 3: // y2
+            case 0: // reserverd for internal use
+            case 1: // x1
+            case 2: // y1
+            case 3: // x2
+            case 4: // y2
                 //resetAnalog(i); // TODO!!!
                 if (action_want[i] != 0) {
                     action_is[i] = action_want[i];
-                    //setAnalog(i, action_is[i]) // TODO!!!
+                    setAnalog(i, action_is[i]);
                 } else {
                     action_is[i] = 0;
                 };
@@ -141,11 +171,27 @@ void beat() {
             default:
                 if (action_want[i] != action_is[i]) {
                     action_is[i] = action_want[i];
-                    //setDigital(i, action_is[i]); // TODO!!!
+                    setDigital(i, action_is[i]);
                 };
                 // keep digital state in action_want
                 break;
         };
     };
 }
+
+void setDigital(uint8_t action, uint8_t value) {
+    switch(action) {
+        case 5: // led
+            if (value) {
+                digitalWrite(ledPin, HIGH);
+            } else {
+                digitalWrite(ledPin, LOW);
+            };
+            break;
+        default:
+            break;
+    };
+
+}
+
 // vim:ft=c:ts=4:sw=4

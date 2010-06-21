@@ -29,7 +29,7 @@ ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, No
     PTRACE(4, "Constructor");
     pserial = tserial;
     for(i = 0; i < 256; i++) {
-        action[i] = new PWORDArray();
+        action[i] = new PBYTEArray();
     };
     queue.SetReadTimeout(0); // timeout 0 ms
     Resume();
@@ -52,39 +52,34 @@ void ControllerThread::Main() {
     unsigned short i = 0; // multiplier for tStep
 
     do {
-        unsigned char buffer[3] = {0, 0, 0};
-        bool fWork = false;
+        unsigned char buffer[3] = {0, 0};
+        bool fNewActions = false;
         /*
          * get x, y, button and other events
          */
         PTRACE(6, "Main\tactions before population:"); dumpAction();
         while(popAction(buffer)) {
-            PWORDArray * actions;
-            WORD value;
+            PBYTEArray * actions;
+            BYTE value;
 
-            fWork = true;
+            fNewActions = true;
             actions = action[buffer[0]];
-            value = buffer[1] << 8;
-            value += buffer[2];
+            value = buffer[1];
             PTRACE(6, "Main\tadd action: " << (int)buffer[0] << " for buffer with size " << actions->GetSize());
             actions->SetAt(actions->GetSize(), value);
         };
-        if (fWork) {
-            /*
-             * process actions
-             */
+        if (fNewActions) {
             PTRACE(6, "Main\tactions after population:"); dumpAction();
             summarizeActions(); // summarize action events by type
             PTRACE(6, "Main\tactions after summarization:"); dumpAction();
-            /*
-             * send current state to arduino
-             * then receive state from arduino
-             * and update actions after sucsessful transmit
-             */
-            processActions();
-        } else {
-            PTRACE(7, "Main\tskip step - no action events");
         };
+        /*
+         * process actions:
+         * send current state to arduino
+         * then receive state from arduino
+         * and update actions after sucsessful transmit
+         */
+        processActions();
         /*
          * wait next 10ms
          */
@@ -113,33 +108,26 @@ void ControllerThread::Stop() {
     shutdown.Signal();
 }
 
-bool ControllerThread::pushAction(BYTE action, WORD value) {
+bool ControllerThread::pushAction(BYTE action, BYTE value) {
     BYTE buffer[2] = {0, 0};
-
-    buffer[0] = value >> 8;
-    buffer[1] = value & 0xff;
-    return pushAction(action, buffer[0], buffer[1]);
-}
-
-bool ControllerThread::pushAction(BYTE action, BYTE value1, BYTE value2) {
-    unsigned char buffer[3] = {0, 0, 0};
-
     buffer[0] = action;
-    buffer[1] = value1;
-    buffer[2] = value2;
-    PTRACE(5, "pushAction\twriting buffer");
+    buffer[1] = value;
+    PTRACE(5, "pushAction\twriting buffer " <<
+            psprintf("%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1]));
     if (!queue.Write(buffer, sizeof(buffer))) {
-        PTRACE(1, "pushAction\twrite failed");
+        PError << "pushAction\twrite failed" << endl;
         return false;
     };
     return true;
 }
 
-bool ControllerThread::popAction(BYTE buffer[3]) {
-    if (!queue.Read(buffer, sizeof(buffer))) {
-        return false;
+bool ControllerThread::popAction(BYTE buffer[2]) {
+    if (!queue.Read(buffer, 2)) {
+        return PFalse;
     };
-    return true;
+    PTRACE(5, "popAction\treading buffer " <<
+            psprintf("%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1]));
+    return PTrue;
 }
 
 void ControllerThread::dumpAction() {
@@ -149,20 +137,15 @@ void ControllerThread::dumpAction() {
         int actionSize = action[i]->GetSize(); 
         if (actionSize>0) {
             int j;
-            // WORD(BYTE/BYTE)
-            PStringStream values;
-            WORD word  = action[i]->GetAt(0);
-            BYTE byte1 = word >> 8;
-            BYTE byte2 = word & 0xff;
+            PStringStream streamValues;
+            BYTE value  = action[i]->GetAt(0);
 
-            values << (int)word << "(" << (int)byte1 << "/" << (int)byte2 << ")";
+            streamValues << (int)value;
             for(j = 1; j < actionSize; j++) {
-                word  = action[i]->GetAt(j);
-                byte1 = word >> 8;
-                byte2 = word & 0xff;
-                values << "," << (int)word << "(" << (int)byte1 << "/" << (int)byte2 << ")";
+                value  = action[i]->GetAt(j);
+                streamValues << "," << (int)value;
             };
-            PTRACE(5, i << ": " << values);
+            PTRACE(6, i << ": " << streamValues);
         };
     };
 }
@@ -179,8 +162,8 @@ void ControllerThread::summarizeActions() {
                 case 1:
                     // summarize relative value x/y
                     for(j = actionSize; j > 0; j--) {
-                        signed short old = action[i]->GetAt(0);
-                        signed short add = action[i]->GetAt(j);
+                        signed char old = action[i]->GetAt(0);
+                        signed char add = action[i]->GetAt(j);
                         action[i]->SetAt(0, old+add);
                         action[i]->SetSize(j);
                     };
@@ -207,25 +190,24 @@ void ControllerThread::summarizeActions() {
 void ControllerThread::processActions() {
     int messageMax = 256;
     char buffer[messageMax];
-    PBYTEArray message(4);
+    PBYTEArray message(3);
 
     // compose send buffer
     for(int i = 0; i < 256; i++) {
         int actionSize = action[i]->GetSize();
         if (actionSize>0) {
-            bool retransmit = false;
+            int retransmit = 0;
 
             message[0] = i; // action
-            message[1] = action[i]->GetAt(0) >> 8; // 1st byte
-            message[2] = action[i]->GetAt(0) & 0xff; // 2nd byte
-            message[3] = message[0] ^ message[1] ^ message[2]; // check summ
+            message[1] = action[i]->GetAt(0); // value
+            message[2] = message[0] ^ message[1]; // check summ
             do {
                 PINDEX len = 0;
                 /*
                  * send action
                  */
                 PTRACE(1, "processActions\tSend query message (hex) "
-                        << psprintf("%02x,%02x,%02x,%02x", (BYTE)message[0], (BYTE)message[1], (BYTE)message[2], (BYTE)message[3])
+                        << psprintf("%02x,%02x,%02x", (BYTE)message[0], (BYTE)message[1], (BYTE)message[2])
                         << " to the serial port");
                 pserial->Write(message.GetPointer(), message.GetSize());
                 /*
@@ -235,30 +217,32 @@ void ControllerThread::processActions() {
                 do {
                     pserial->Read(buffer, messageMax);
                     len += pserial->GetLastReadCount();
-                } while(len < 4);
+                } while(len < 3);
                 /*
                  * process reply
                  */
-                if (len == 4) {
+                if (len == 3) {
                     PTRACE(1, "processActions\tReceive reply message (hex) "
-                            << psprintf("%02x,%02x,%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2], (BYTE)buffer[3])
+                            << psprintf("%02x,%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2])
                             << " from the serial port");
-                    if (buffer[0] == message[0] && buffer[1] == message[1] && buffer[2] == message[2] && buffer[3] == message[3]) {
-                        retransmit = false;
-                        // transmit was sucsessful, drop 1st action from array
+                    if ((BYTE)buffer[0] == (BYTE)message[0] && (BYTE)buffer[1] == (BYTE)message[1] && (BYTE)buffer[2] == (BYTE)message[2]) {
+                        retransmit = 0;
+                        // transmit was successful, drop 1st action from array
                         for(int j = 0; j < actionSize; j++) {
                             action[i]->SetAt(j, action[i]->GetAt(j+1));
                         };
                         action[i]->SetSize(actionSize-1);
                     } else {
-                        retransmit = true;
-                        PTRACE(1, "retransmit, receive zero reply");
+                        retransmit++;
+                        PTRACE(1, "retransmit, receive broken reply"
+                                << psprintf("%02x,%02x,%02x", (BYTE)message[0], (BYTE)message[1], (BYTE)message[2])
+                                    << psprintf("%02x,%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2]));
                     };
                 } else {
-                    retransmit = true;
+                    retransmit++;
                     PTRACE(1, "retransmit, receive broken reply, len: " << (int)len);
                 };
-            } while(retransmit);
+            } while(retransmit > 0 and retransmit < 5);
         };
     };
 }

@@ -45,11 +45,14 @@ UITest::UITest(ControllerThread * _controller, Resources * _resources) :
     // arrow
     arrowOffsetX = 496;
     arrowOffsetY = 134;
+    // led
+    ledStatus = PFalse;
 }
 
 UITest::~UITest() {
     // Free the loaded image
     SDL_FreeSurface(background);
+    SDL_FreeSurface(ledOn);
     SDL_FreeSurface(crosshairOn);
     SDL_FreeSurface(crosshairOff);
     SDL_FreeSurface(arrowTop);
@@ -60,6 +63,7 @@ UITest::~UITest() {
 
 void UITest::Initialize() {
     PString backgroundName("TestUI/background.bmp");
+    PString ledOnName("TestUI/ledOn.bmp");
     PString crosshairOnName("TestUI/crosshairOn.bmp");
     PString crosshairOffName("TestUI/crosshairOff.bmp");
     PString arrowTopName("TestUI/arrow_top.bmp");
@@ -79,6 +83,7 @@ void UITest::Initialize() {
         PError << "an error loading" << endl;
         return;
     }
+    ledOn        = resources->LoadImageOptimized(ledOnName);
     crosshairOn  = resources->LoadImageOptimized(crosshairOnName);
     crosshairOff = resources->LoadImageOptimized(crosshairOffName);
     arrowTop     = resources->LoadImageOptimized(arrowTopName);
@@ -147,6 +152,9 @@ void UITest::eventMouseDown() {
         UpdateUIAndControls(331, 299); //center
         return;
     };
+    if (event.button.button == SDL_BUTTON_LEFT) {
+        PTRACE(5, "eventMouseDown\tclick left x:" << x << " y:" << y);
+    };
     if (nMouseState > 0 && event.button.button == SDL_BUTTON_LEFT) {
         // If the left mouse button was pressed
         SDL_WM_GrabInput(SDL_GRAB_OFF);
@@ -171,7 +179,7 @@ void UITest::eventMouseDown() {
                 (y > boxMainField.y) && (y < boxMainField.y + boxMainField.h) ) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 nMouseState = 1;
-                SDL_WM_GrabInput(SDL_GRAB_ON);
+                //SDL_WM_GrabInput(SDL_GRAB_ON);
                 //SDL_ShowCursor(SDL_DISABLE);
                 UpdateUIAndControls(x, y);
             };
@@ -182,7 +190,7 @@ void UITest::eventMouseDown() {
                 (y > arrowOffsetY - arrowTop->h/2) && (y < arrowOffsetY + arrowTop->h/2)) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 nMouseState = 2;
-                SDL_WM_GrabInput(SDL_GRAB_ON);
+                //SDL_WM_GrabInput(SDL_GRAB_ON);
                 //SDL_ShowCursor(SDL_DISABLE);
                 UpdateUIAndControls(x, crossY);
             };
@@ -192,10 +200,28 @@ void UITest::eventMouseDown() {
                 (y > crossY - arrowRight->h/2) && (y < crossY + arrowRight->h/2)) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 nMouseState = 3;
-                SDL_WM_GrabInput(SDL_GRAB_ON);
+                //SDL_WM_GrabInput(SDL_GRAB_ON);
                 //SDL_ShowCursor(SDL_DISABLE);
                 UpdateUIAndControls(crossX, y);
             };
+        };
+        // If the mouse is over led
+        if ((x > 100) && (x < 150) &&
+                (y > 10) && (y < 60) ) {
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                if (ledStatus) {
+                    // turn led OFF
+                    ledStatus = PFalse;
+                    controller->pushAction(5, (BYTE)0);
+                    UpdateUIAndControls(crossX, crossY);
+                } else {
+                    // turn led ON
+                    ledStatus = PTrue;
+                    controller->pushAction(5, (BYTE)1);
+                    UpdateUIAndControls(crossX, crossY);
+                };
+            };
+            return;
         };
     };
 }
@@ -269,17 +295,15 @@ void UITest::UpdateUIAndControls(int x, int y) {
     } else if (y >= 439) {
         y = 438;
     };
-    // normalize x,y for controller
-    signed char xN = ((x - boxMainField.x) * 255 / 280) - 128;
-    signed char yN = ((((y - boxMainField.y)-280) * -1) * 255 / 280) - 128;
     // apply the images to the screen
     apply_surface(0, 0, background, screen, NULL);
-    // numbers
-    apply_surface(260, 70, digitals[xN+128], screen, NULL);
-    apply_surface(410, 70, digitals[yN+128], screen, NULL);
     // arrow
     apply_surface(x - arrowTop->w/2, arrowOffsetY - arrowTop->h/2, arrowTop, screen, NULL );
     apply_surface(arrowOffsetX - arrowRight->w/2, y - arrowRight->h/2, arrowRight, screen, NULL );
+    // allply led
+    if (ledStatus) {
+        apply_surface(0, 0, ledOn, screen, NULL);
+    };
     // crosshair
     if (nMouseState == 1) {
         // set cross coorinates
@@ -297,6 +321,15 @@ void UITest::UpdateUIAndControls(int x, int y) {
         crossY = y;
         apply_surface(x - crosshairOff->w/2 - 1, y - crosshairOff->h/2 + 1, crosshairOff, screen, NULL);
     };
+    // normalize x,y for controller
+    signed char xN = ((crossX - boxMainField.x) * 255 / 280) - 128;
+    signed char yN = ((((crossY - boxMainField.y)-280) * -1) * 255 / 280) - 128;
+    // numbers
+    apply_surface(260, 70, digitals[xN+128], screen, NULL);
+    apply_surface(410, 70, digitals[yN+128], screen, NULL);
+    // controller
+    controller->pushAction(1, (BYTE)xN);
+    controller->pushAction(2, (BYTE)yN);
     // update the screen
     if (SDL_Flip(screen) == -1) {
         return;

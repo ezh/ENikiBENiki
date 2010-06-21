@@ -52,7 +52,7 @@ ENikiBeNikiProcess::ENikiBeNikiProcess()
 {
     mapUIStringValues["default"] = uiDefault;
     mapUIStringValues["test"] = uiTest;
-    //serial.SetReadTimeout(0); // timeout 0 ms
+    serial.SetReadTimeout(10); // timeout 10 ms
 }
 
 void ENikiBeNikiProcess::Main()

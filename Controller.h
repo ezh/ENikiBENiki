@@ -35,11 +35,10 @@ class ControllerThread : public PThread {
         ~ControllerThread();
         virtual void Main(); // main thread loop
         void Stop(); // shutdown routine
-        bool pushAction(BYTE control, WORD value); // populate queue
-        bool pushAction(BYTE control, BYTE value1, BYTE value2); // populate queue
+        bool pushAction(BYTE control, BYTE value); // populate queue
 
     private:
-        bool popAction(BYTE buffer[3]); // process queue
+        bool popAction(BYTE buffer[2]); // process queue
         void dumpAction(); // dump to stream action array
         void summarizeActions(); // simplify action arrays
         void processActions(); // send 1st action in array to serial
@@ -48,27 +47,30 @@ class ControllerThread : public PThread {
          * action queue, 2 bytes
          * 1 byte - action type
          * 1 byte - action quantity
-         * x relative  - 0,  0..255 (middle - 128) # left/right
-         * y relative  - 1,  0..255 (middle - 128) # up/down
-         * x absolute  - 2,  0..255 (middle - 128) # left/right
-         * y absolute  - 3,  0..255 (middle - 128) # up/down
-         * digital_1  - 4,  0/1
-         * digital_2  - 5,  0/1
-         * digital_3  - 6,  0/1
-         * digital_4  - 7,  0/1
-         * digital_5  - 8,  0/1
-         * digital_6  - 9,  0/1
-         * digital_7  - 10, 0/1
-         * digital_8  - 11, 0/1
-         * digital_9  - 12, 0/1
-         * digital_10 - 13, 0/1
-         * digital_11 - 14, 0/1
-         * digital_12 - 15, 0/1
-         * digital_13 - 16, 0/1
-         * digital_14 - 17, 0/1
-         * digital_15 - 18, 0/1
+         * x relative  - 1,  0..255 (middle - 128) # left/right
+         * y relative  - 2,  0..255 (middle - 128) # up/down
+         * x absolute  - 3,  0..255 (middle - 128) # left/right
+         * y absolute  - 4,  0..255 (middle - 128) # up/down
+         * digital_1  - 5,  0/1
+         * digital_2  - 6,  0/1
+         * digital_3  - 7,  0/1
+         * digital_4  - 8,  0/1
+         * digital_5  - 9,  0/1
+         * digital_6  - 10,  0/1
+         * digital_7  - 11, 0/1
+         * digital_8  - 12, 0/1
+         * digital_9  - 13, 0/1
+         * digital_10 - 14, 0/1
+         * digital_11 - 15, 0/1
+         * digital_12 - 16, 0/1
+         * digital_13 - 17, 0/1
+         * digital_14 - 18, 0/1
+         * digital_15 - 19, 0/1
          * ...
          * digital_N  - 255,0/1
+         *
+         * 0 - special action reserved for internal use
+         *
          */
         PQueueChannel queue;
         /* shutdown trigger */
@@ -81,7 +83,7 @@ class ControllerThread : public PThread {
          * value1 - send this step
          * value2..n - will send after
          */
-        PWORDArray * action[256];
+        PBYTEArray * action[256];
         /* serial communication channel pointer */
         PSerialChannel * pserial;
 };

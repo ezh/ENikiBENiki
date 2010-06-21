@@ -45,6 +45,7 @@ class UITest : public UI {
         int crossY;
         //The images
         SDL_Surface * background;
+        SDL_Surface * ledOn;
         SDL_Surface * crosshairOn;
         SDL_Surface * crosshairOff;
         SDL_Surface * arrowTop;
@@ -66,6 +67,8 @@ class UITest : public UI {
          * 3 - scrollY
          */
         int nMouseState;
+        // led
+        bool ledStatus;
         // control box
         SDL_Rect boxMainField;
         //PString fontName;
