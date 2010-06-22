@@ -24,14 +24,14 @@
 #define new PNEW
 
 ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, NoAutoDeleteThread), queue(1000) {
-    int i;
-
     PTRACE(4, "Constructor");
     pserial = tserial;
-    for(i = 0; i < 256; i++) {
+    for(int i = 0; i < 256; i++) {
         action[i] = new PBYTEArray();
     };
     queue.SetReadTimeout(0); // timeout 0 ms
+    queue.SetWriteTimeout(0); // timeout 0 ms
+    timeout = 10;
     Resume();
 }
 
@@ -39,7 +39,7 @@ ControllerThread::~ControllerThread() {
     unsigned char i;
 
     PTRACE(4, "Destructor");
-    for(i = 0; i == 255; i++) {
+    for(i = 0; i < 256; i++) {
         delete action[i];
     };
 }
@@ -57,7 +57,7 @@ void ControllerThread::Main() {
         /*
          * get x, y, button and other events
          */
-        PTRACE(6, "Main\tactions before population:"); dumpAction();
+        PTRACE(6, "Main\t" << dumpAction("actions before population: "));
         while(popAction(buffer)) {
             PBYTEArray * actions;
             BYTE value;
@@ -65,13 +65,13 @@ void ControllerThread::Main() {
             fNewActions = true;
             actions = action[buffer[0]];
             value = buffer[1];
-            PTRACE(6, "Main\tadd action: " << (int)buffer[0] << " for buffer with size " << actions->GetSize());
+            PTRACE(6, "Main\tadd new value to actions[" << (int)buffer[0] << "] with size " << actions->GetSize());
             actions->SetAt(actions->GetSize(), value);
         };
         if (fNewActions) {
-            PTRACE(6, "Main\tactions after population:"); dumpAction();
+            PTRACE(6, "Main\t" << dumpAction("actions after population: "));
             summarizeActions(); // summarize action events by type
-            PTRACE(6, "Main\tactions after summarization:"); dumpAction();
+            PTRACE(6, "Main\t" << dumpAction("actions after summarization: "));
         };
         /*
          * process actions:
@@ -130,56 +130,54 @@ bool ControllerThread::popAction(BYTE buffer[2]) {
     return PTrue;
 }
 
-void ControllerThread::dumpAction() {
-    int i;
+PString ControllerThread::dumpAction(const char * szHeader) {
+    PStringStream streamValues;
+    bool fEmpty = true;
 
-    for(i = 0; i < 256; i++) {
-        int actionSize = action[i]->GetSize(); 
-        if (actionSize>0) {
-            int j;
-            PStringStream streamValues;
+    streamValues << szHeader;
+    for(int i = 0; i < 256; i++) {
+        if (!action[i]->IsEmpty()) {
+            int actionSize = action[i]->GetSize(); 
             BYTE value  = action[i]->GetAt(0);
-
-            streamValues << (int)value;
-            for(j = 1; j < actionSize; j++) {
+            streamValues << endl << "actions[" << i << "]: " << (int)value;
+            for(int j = 1; j < actionSize; j++) {
                 value  = action[i]->GetAt(j);
                 streamValues << "," << (int)value;
             };
-            PTRACE(6, i << ": " << streamValues);
+            fEmpty = false;
         };
     };
+    if (fEmpty) {
+        streamValues << "empty";
+    };
+    return streamValues;
 }
 
+            //for(int j = actionSize; j > 0; j--) {
+            //    PTRACE(1, "new size " << j);
+            //    signed char old = action[i]->GetAt(0);
+            //    signed char add = action[i]->GetAt(j);
+            //    action[i]->SetAt(0, old+add);
+            //    action[i]->SetSize(j);
+            //};
+            //break;
 void ControllerThread::summarizeActions() {
-    int i;
-
-    for(i = 0; i < 256; i++) {
+    for(int i = 0; i < 256; i++) {
         int actionSize = action[i]->GetSize(); 
         if (actionSize>1) {
-            int j;
             switch(i) {
                 case 0:
                 case 1:
-                    // summarize relative value x/y
-                    for(j = actionSize; j > 0; j--) {
-                        signed char old = action[i]->GetAt(0);
-                        signed char add = action[i]->GetAt(j);
-                        action[i]->SetAt(0, old+add);
-                        action[i]->SetSize(j);
-                    };
-                    break;
                 case 2:
                 case 3:
                     // replace first absolute value x/y with last
-                    action[i]->SetAt(0, action[i]->GetAt(j));
-                    for(j = actionSize; j > 0; j--) {
-                        action[i]->SetSize(j);
-                    };
+                    action[i]->SetAt(0, action[i]->GetAt(actionSize));
+                    action[i]->SetSize(1);
                     break;
                 default:
                     // keep first 3 digital values
-                    for(j = actionSize; j > 2; j--) {
-                        action[i]->SetSize(j);
+                    if (actionSize>3) {
+                        action[i]->SetSize(3);
                     };
                     break;
             };
@@ -203,13 +201,16 @@ void ControllerThread::processActions() {
             message[2] = message[0] ^ message[1]; // check summ
             do {
                 PINDEX len = 0;
+                PTime tNow;
                 /*
                  * send action
                  */
                 PTRACE(1, "processActions\tSend query message (hex) "
                         << psprintf("%02x,%02x,%02x", (BYTE)message[0], (BYTE)message[1], (BYTE)message[2])
                         << " to the serial port");
-                pserial->Write(message.GetPointer(), message.GetSize());
+                if (!pserial->Write(message.GetPointer(), message.GetSize())) {
+                    PError << "write data to serial port failed, error is " << pserial->GetErrorText() << endl;
+                };
                 /*
                  * receive reply from confroller
                  */
@@ -217,6 +218,10 @@ void ControllerThread::processActions() {
                 do {
                     pserial->Read(buffer, messageMax);
                     len += pserial->GetLastReadCount();
+                    if ((PTime() - tNow).GetMilliSeconds()>timeout) {
+                        PError << "read data from serial port timeout (trying to read more than " << (PTime() - tNow).GetMilliSeconds() << "ms)" << endl;
+                        break;
+                    };
                 } while(len < 3);
                 /*
                  * process reply
@@ -234,13 +239,13 @@ void ControllerThread::processActions() {
                         action[i]->SetSize(actionSize-1);
                     } else {
                         retransmit++;
-                        PTRACE(1, "retransmit, receive broken reply"
-                                << psprintf("%02x,%02x,%02x", (BYTE)message[0], (BYTE)message[1], (BYTE)message[2])
+                        PTRACE(1, "retransmit(" << retransmit << "), receive broken reply, message:"
+                                << psprintf("%02x,%02x,%02x", (BYTE)message[0], (BYTE)message[1], (BYTE)message[2]) << ", buffer:"
                                     << psprintf("%02x,%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2]));
                     };
                 } else {
                     retransmit++;
-                    PTRACE(1, "retransmit, receive broken reply, len: " << (int)len);
+                    PTRACE(1, "retransmit(" << retransmit << "), receive broken reply, len: " << (int)len);
                 };
             } while(retransmit > 0 and retransmit < 5);
         };

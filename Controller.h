@@ -39,7 +39,7 @@ class ControllerThread : public PThread {
 
     private:
         bool popAction(BYTE buffer[2]); // process queue
-        void dumpAction(); // dump to stream action array
+        PString dumpAction(const char * szHeader); // dump to stream action array
         void summarizeActions(); // simplify action arrays
         void processActions(); // send 1st action in array to serial
                                // receive response, remove 1st action that already sent
@@ -86,6 +86,8 @@ class ControllerThread : public PThread {
         PBYTEArray * action[256];
         /* serial communication channel pointer */
         PSerialChannel * pserial;
+        /* I/O timeout ms */
+        int timeout;
 };
 
 #endif  // _CONTROLLERTHREAD_H

@@ -2,7 +2,7 @@ STDCCFLAGS    += -Iexternal/SDL -Iexternal/SDL_ttf -Iexternal/physfs
 ENDLDLIBS     += -Lexternal/SDL/build/.libs -Lexternal/SDL_ttf/.libs/ -Lexternal/physfs -lSDL -lSDL_ttf -lphysfs
 
 PROG		= ENikiBENiki
-SOURCES		:= UITest.cxx UIDefault.cxx UI.cxx Controller.cxx  Resources.cxx ResourceRO.cxx ResourceWO.cxx Resource.cxx main.cxx precompile.cxx
+SOURCES		:= UITest.cpp UIDefault.cpp UI.cpp Controller.cpp  Resources.cpp ResourceRO.cpp ResourceWO.cpp Resource.cpp main.cpp precompile.cpp
 
 ifndef PTLIBDIR
 PTLIBDIR=external/ptlib
