@@ -19,68 +19,29 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "SDL.h"
-#include "SDL_ttf.h" 
+#include <ptlib.h>
+#include <ptlib/serchan.h>
+#include <ptclib/qchannel.h>
 
-#include "UI.h"
+#ifndef _FAKESERIAL_H_
+#define _FAKESERIAL_H_
 
-#ifndef _UITest_H_
-#define _UITest_H_
-
-class UITest : public UI {
+class FakeSerial : public PSerialChannel
+{
     public:
-        UITest(ControllerThread * _controller, Resources * _resources);
-        ~UITest();
-        void Initialize();
-        void Main();
+        FakeSerial();
+        PBoolean Read(void * buf, PINDEX len);
+        PBoolean Write(const void * buf, PINDEX len);
+        PINDEX GetLastReadCount() const;
+        PBoolean Open(const PString & port, DWORD speed, BYTE data, Parity parity, BYTE stop, FlowControl inputFlow, FlowControl outputFlow);
+        PBoolean Close();
+        void SetReadTimeout(const PTimeInterval & time);
+        void SetWriteTimeout(const PTimeInterval & time);
     private:
-        void UpdateUIAndControls(int x, int y);
-        void eventMouseUp();
-        void eventMouseDown();
-        void eventMouseMotion();
-        void eventKeyDown();
-        void eventQuit();
-        void apply_surface(int x,int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip);
-        // x y
-        int crossX;
-        int crossY;
-        //The images
-        SDL_Surface * backgroundJumpOff;
-        SDL_Surface * backgroundJumpOn;
-        SDL_Surface * ledOn;
-        SDL_Surface * crosshairOn;
-        SDL_Surface * crosshairOff;
-        SDL_Surface * arrowTop;
-        SDL_Surface * arrowRight;
-        SDL_Surface * screen;
-        SDL_Surface * digitals[256];
-        // arrows
-        int arrowOffsetX;
-        int arrowOffsetY;
-        //The event structure that will be used
-        SDL_Event event;
-        //Make sure the program waits for a quit
-        bool quit;
-        /*
-         * grab flag
-         * 0 - none
-         * 1 - main field
-         * 2 - scrollX
-         * 3 - scrollY
-         */
-        int nMouseState;
-        // boolen jump to center logic
-        bool jumpToCenter;
-        // led
-        bool ledStatus;
-        // control box
-        SDL_Rect boxMainField;
-        //PString fontName;
-        TTF_Font * font;
-        SDL_Color textColor;
+        int lastReadCount;
+        PQueueChannel fakequeue;
 };
 
-#endif  // _UITest_H
-
+#endif // _FAKESERIAL_H_
 // End of File ///////////////////////////////////////////////////////////////
 // vim:ft=c:ts=4:sw=4

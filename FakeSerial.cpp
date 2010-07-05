@@ -19,35 +19,46 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifndef _ENIKIBENIKI_MAIN_H
-#define _ENIKIBENIKI_MAIN_H
+#include "FakeSerial.h"
 
-#include <ptlib/pprocess.h>
-#include <ptclib/qchannel.h>
-#include <ptlib/serchan.h>
+#define new PNEW
 
-/** The main class that is instantiated to do things */
-class ENikiBeNikiProcess : public PProcess
-{
-    PCLASSINFO(ENikiBeNikiProcess, PProcess)
-    public:
-        /* Constructor, which initalises version number, application name etc */
-        ENikiBeNikiProcess();
-        /*
-         * Execution starts here, where the command line is processed. In here, the
-         * child threads (for generating and consuming data) are launched.
-         */
-        void Main();
+FakeSerial::FakeSerial() : fakequeue(1000) {
+    fakequeue.SetReadTimeout(0); // timeout 0 ms
+    fakequeue.SetWriteTimeout(0); // timeout 0 ms
+}
 
-    protected:
-        /* serial communication*/
-        PSerialChannel * pserial;
-    private:
-        PBoolean InitializeSerial(PConfigArgs & args);
+PBoolean FakeSerial::Read(void * buf, PINDEX len) {
+    if (!fakequeue.Read(buf, len)) {
+        return PFalse;
+    };
+    lastReadCount = fakequeue.GetLastReadCount();
+    return PTrue;
+}
+
+PBoolean FakeSerial::Write(const void * buf, PINDEX len) {
+    if (!fakequeue.Write(buf, len)) {
+        PError << "Write\twrite failed" << endl;
+        return PFalse;
+    };
+    return PTrue;
+}
+
+PINDEX FakeSerial::GetLastReadCount() const {
+    return lastReadCount;
 };
 
+PBoolean FakeSerial::Open(const PString & port, DWORD speed, BYTE data, Parity parity, BYTE stop, FlowControl inputFlow, FlowControl outputFlow) {
+    return PTrue;
+};
 
-#endif  // _ENIKIBENIKI_MAIN_H
+PBoolean FakeSerial::Close() {
+    return PTrue;
+};
 
-// End of File ///////////////////////////////////////////////////////////////
-// vim:ft=c:ts=4:sw=4
+void FakeSerial::SetReadTimeout(const PTimeInterval & time) {
+};
+
+void FakeSerial::SetWriteTimeout(const PTimeInterval & time) {
+};
+

@@ -47,11 +47,14 @@ UITest::UITest(ControllerThread * _controller, Resources * _resources) :
     arrowOffsetY = 134;
     // led
     ledStatus = PFalse;
+    // jump top center
+    jumpToCenter = PFalse;
 }
 
 UITest::~UITest() {
     // Free the loaded image
-    SDL_FreeSurface(background);
+    SDL_FreeSurface(backgroundJumpOn);
+    SDL_FreeSurface(backgroundJumpOff);
     SDL_FreeSurface(ledOn);
     SDL_FreeSurface(crosshairOn);
     SDL_FreeSurface(crosshairOff);
@@ -62,7 +65,8 @@ UITest::~UITest() {
 }
 
 void UITest::Initialize() {
-    PString backgroundName("TestUI/background.bmp");
+    PString backgroundJumpOnName("TestUI/TestUIJumpON.bmp");
+    PString backgroundJumpOffName("TestUI/TestUIJumpOFF.bmp");
     PString ledOnName("TestUI/ledOn.bmp");
     PString crosshairOnName("TestUI/crosshairOn.bmp");
     PString crosshairOffName("TestUI/crosshairOff.bmp");
@@ -78,11 +82,16 @@ void UITest::Initialize() {
     // set the window caption
     SDL_WM_SetCaption( "ENikiBeNiki", NULL ); 
     // load images
-    background   = resources->LoadImageOptimized(backgroundName);
-    if (!background) {
+    backgroundJumpOn = resources->LoadImageOptimized(backgroundJumpOnName);
+    if (!backgroundJumpOn) {
         PError << "an error loading" << endl;
         return;
-    }
+    };
+    backgroundJumpOff = resources->LoadImageOptimized(backgroundJumpOffName);
+    if (!backgroundJumpOff) {
+        PError << "an error loading" << endl;
+        return;
+    };
     ledOn        = resources->LoadImageOptimized(ledOnName);
     crosshairOn  = resources->LoadImageOptimized(crosshairOnName);
     crosshairOff = resources->LoadImageOptimized(crosshairOffName);
@@ -133,6 +142,8 @@ void UITest::Main() {
                         eventFuture.motion.state == event.motion.state )) {
                 if (event.type == SDL_MOUSEBUTTONDOWN) {
                     eventMouseDown();
+                } else if (event.type == SDL_MOUSEBUTTONUP) {
+                    eventMouseUp();
                 } else if (event.type == SDL_MOUSEMOTION) {
                     eventMouseMotion();
                 } else if (event.type == SDL_KEYDOWN) {
@@ -143,6 +154,15 @@ void UITest::Main() {
             };
         }
     }
+}
+
+void UITest::eventMouseUp() {
+    if (nMouseState == 1 && event.button.button == SDL_BUTTON_LEFT && jumpToCenter) {
+        // release left button
+        SDL_WM_GrabInput(SDL_GRAB_OFF);
+        nMouseState = 0;
+        UpdateUIAndControls(331, 299); //center
+    };
 }
 
 void UITest::eventMouseDown() {
@@ -223,6 +243,21 @@ void UITest::eventMouseDown() {
             };
             return;
         };
+        // If mouse is over jumpTo checkbox
+        if ((x > 540) && (x < 600) &&
+                (y > 365) && (y < 425) ) {
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                if (jumpToCenter) {
+                    // turn led OFF
+                    jumpToCenter = PFalse;
+                } else {
+                    // turn led ON
+                    jumpToCenter = PTrue;
+                };
+                UpdateUIAndControls(crossX, crossY);
+            };
+            return;
+        };
     };
 }
 
@@ -296,7 +331,11 @@ void UITest::UpdateUIAndControls(int x, int y) {
         y = 438;
     };
     // apply the images to the screen
-    apply_surface(0, 0, background, screen, NULL);
+    if (jumpToCenter) {
+        apply_surface(0, 0, backgroundJumpOn, screen, NULL);
+    } else {
+        apply_surface(0, 0, backgroundJumpOff, screen, NULL);
+    };
     // arrow
     apply_surface(x - arrowTop->w/2, arrowOffsetY - arrowTop->h/2, arrowTop, screen, NULL );
     apply_surface(arrowOffsetX - arrowRight->w/2, y - arrowRight->h/2, arrowRight, screen, NULL );

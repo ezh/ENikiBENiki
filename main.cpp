@@ -26,6 +26,7 @@
 
 #include "main.h"
 #include "version.h"
+#include "FakeSerial.h"
 #include "Controller.h"
 #include "Resources.h"
 //
@@ -52,8 +53,6 @@ ENikiBeNikiProcess::ENikiBeNikiProcess()
 {
     mapUIStringValues["default"] = uiDefault;
     mapUIStringValues["test"] = uiTest;
-    serial.SetReadTimeout(10); // timeout 10 ms
-    serial.SetWriteTimeout(10); // timeout 10 ms
 }
 
 void ENikiBeNikiProcess::Main()
@@ -123,7 +122,7 @@ void ENikiBeNikiProcess::Main()
             <<  "     --parity                    Set parity, even, odd or none " << endl
             <<  "     --stopbits                  Set the number of stop bits (0, 1, 2) " << endl
             <<  "     --flowcontrol               Specifiy flow control, (none rtscts, xonxoff)" << endl
-            <<  "     --serialport                Which serial port to use (COM1, ttyUSB2, ttya) ..." << endl
+            <<  "     --serialport                Which serial port to use (fake, COM1, ttyUSB2, ttya) ..." << endl
             <<  "-v   --version                   Print version information and exit" << endl
             <<  "-h   --help                      Write this help out.                   " << endl
             << endl;
@@ -143,7 +142,7 @@ void ENikiBeNikiProcess::Main()
     };
 
     cout << "timer resolution reported as " << PTimer::Resolution() << "ms" << endl;
-    controller = new ControllerThread(&serial);
+    controller = new ControllerThread(pserial);
     resources = new Resources(resourceExt);
     if (!resources->Open(appExec, appName)) {
         return;
@@ -163,7 +162,7 @@ void ENikiBeNikiProcess::Main()
     controller->Stop();
     controller->WaitForTermination();
     cout << "main thread terminated seccessful" << endl;
-    serial.Close();
+    pserial->Close();
     delete controller;
 }
 
@@ -179,6 +178,24 @@ PBoolean ENikiBeNikiProcess::InitializeSerial(PConfigArgs & args)
     PSerialChannel::Parity pValue = PSerialChannel::DefaultParity;
     PSerialChannel::FlowControl flowControl = PSerialChannel::DefaultFlowControl;
 
+    if (!args.HasOption("serialport")) {
+        PStringStream allNames;
+        pserial = new PSerialChannel();
+        PStringList names = pserial->GetPortNames();
+        for(PINDEX i = 0; i < names.GetSize(); i++)
+            allNames << names[i] << " ";
+        cout << "example of available serial ports are " << allNames << endl;
+        portName = names[0];
+        cout << "serial port not specified. Serial port set to " << portName << endl;
+    } else {
+        portName = args.GetOptionString("serialport");
+        cout << "serial port is specified. Serial port is set to " << portName << endl;
+        if (portName *= "fake"){
+            pserial = new FakeSerial(); 
+        } else {
+            pserial = new PSerialChannel();
+        };
+    };
     if (!args.HasOption("baud")) {
         baud = 115200;
         cout << "baud not specifed.          Using " << baud << endl;
@@ -220,46 +237,36 @@ PBoolean ENikiBeNikiProcess::InitializeSerial(PConfigArgs & args)
         cout << "valid args to flowcontrol are \"XonXoff\" or \"RtsCts\" or \"none\"" << endl;
         return PFalse;
     };
-    if (!args.HasOption("serialport")) {
-        PStringStream allNames;
-        PStringList names = serial.GetPortNames();
-        for(PINDEX i = 0; i < names.GetSize(); i++)
-            allNames << names[i] << " ";
-        cout << "example of available serial ports are " << allNames << endl;
-        portName = names[0];
-        cout << "serial port not specified. Serial port set to " << portName << endl;
-    } else {
-        portName = args.GetOptionString("serialport");
-        cout << "serial port is specified. Serial port is set to " << portName << endl;
-    };
     if (parity *= "none")
-      pValue = PSerialChannel::NoParity;
+        pValue = PSerialChannel::NoParity;
     if (parity *= "even")
-      pValue = PSerialChannel::EvenParity;
+        pValue = PSerialChannel::EvenParity;
     if (parity *= "odd")
-      pValue = PSerialChannel::OddParity;
+        pValue = PSerialChannel::OddParity;
     if (pValue == PSerialChannel::DefaultParity) {
-      cout << "parity value of " << parity << " could not be interpreted" << endl;
-      return PFalse;
+        cout << "parity value of " << parity << " could not be interpreted" << endl;
+        return PFalse;
     };
     if (flowControlString *= "xonxoff"){
-      flowControl = PSerialChannel::XonXoff;
-      PTRACE(3, "using xonxoff flow control");
+        flowControl = PSerialChannel::XonXoff;
+        PTRACE(3, "using xonxoff flow control");
     };
     if (flowControlString *= "rtscts") {
-      flowControl = PSerialChannel::RtsCts;
-      PTRACE(3, "using rts cts flow conrol ");
+        flowControl = PSerialChannel::RtsCts;
+        PTRACE(3, "using rts cts flow conrol ");
     };
     if (flowControlString *= "none") {
-      flowControl = PSerialChannel::NoFlowControl;
-      PTRACE(3, "not using any flow control of any sort");
+        flowControl = PSerialChannel::NoFlowControl;
+        PTRACE(3, "not using any flow control of any sort");
     };
-    if (!serial.Open(portName, baud, dataBits, pValue, stopBits, flowControl, flowControl)) {
-      cout << "failed to open serial port " << endl;
-      cout << "error code is \"" << serial.GetErrorText() << "\"" << endl;
-      cout << "failed in attempt to open port /dev/" << portName << endl;
-      return PFalse;
+    if (!pserial->Open(portName, baud, dataBits, pValue, stopBits, flowControl, flowControl)) {
+        cout << "failed to open serial port " << endl;
+        cout << "error code is \"" << pserial->GetErrorText() << "\"" << endl;
+        cout << "failed in attempt to open port /dev/" << portName << endl;
+        return PFalse;
     };
+    pserial->SetReadTimeout(10); // timeout 10 ms
+    pserial->SetWriteTimeout(10); // timeout 10 ms
  
     return PTrue;
 }
