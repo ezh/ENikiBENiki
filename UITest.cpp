@@ -319,6 +319,8 @@ void UITest::apply_surface( int x, int y, SDL_Surface* source, SDL_Surface* dest
 }
 
 void UITest::UpdateUIAndControls(int x, int y) {
+    int oldCrossX = crossX;
+    int oldCrossY = crossY;
     // add constraint
     if (x <= boxMainField.x + 1) {
         x = boxMainField.x + 2;
@@ -367,8 +369,10 @@ void UITest::UpdateUIAndControls(int x, int y) {
     apply_surface(260, 70, digitals[xN+128], screen, NULL);
     apply_surface(410, 70, digitals[yN+128], screen, NULL);
     // controller
-    controller->pushAction(1, (BYTE)xN);
-    controller->pushAction(2, (BYTE)yN);
+    if (oldCrossX != crossX)
+        controller->pushAction(1, (BYTE)xN);
+    if (oldCrossY != crossY)
+        controller->pushAction(2, (BYTE)yN);
     // update the screen
     if (SDL_Flip(screen) == -1) {
         return;

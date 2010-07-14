@@ -19,14 +19,6 @@
  *                                                                         *
  ***************************************************************************/
 
-#define DEBUG
-
-#ifdef DEBUG
-#define debugmsg(msg, size) Serial.print(0, BYTE);Serial.print(size, BYTE);Serial.print(msg);
-#else
-#define debugmsg(msg, size)
-#endif // def DEBUG
-
 #include "TimerOne.h" // using Timer1 library from http://www.arduino.cc/playground/Code/Timer1
 
 #define DATAOUT 11//MOSI
@@ -42,8 +34,8 @@ int bufferN = 0; // received bytes counter
 int ledPin = 6; // led pin
 bool ledState = false;
 int zeroCounter = 0; // if we got 000 at serial port than reset communication
-bool fBeat = false; // heatbeat flag
-int rTimeout = 0; // serial port last read timeout seconds
+int bCounter = 0;
+int lCounter = 0;
 
 void setup() {
     byte clr;
@@ -122,19 +114,16 @@ byte write_pot(int address, int value) {
 }
 
 void loop() {
-    if (fBeat && bufferN == 0 || fBeat && rTimeout > 1) {
-        fBeat    = false; // turn off heatbeat flag
-        rTimeout = 0; // reset read timeout
-        bufferN  = 0; // reset buffer pointer
-        Serial.print(0, BYTE); // debug heatbeat
-        Serial.print(0, BYTE);
+    lCounter++;
+    if (lCounter>10000) {
+        Serial.println("loop");
+        lCounter = 0;
     };
     /*
      * read
      */
     if (Serial.available() > 0) {
         buffer[bufferN++] = Serial.read();
-        rTimeout = 0; // reset read timeout
     };
     /*
      * process
@@ -144,27 +133,32 @@ void loop() {
         bufferN = 0;
         if ((buffer[0] ^ buffer[1]) == buffer[2]) {
             // check summ ok
-            Serial.print(buffer[0] + buffer[1] + buffer[2], BYTE);
+            /*
+             * write
+             */
+            for (int i = 0; i < 3; i++) {
+                Serial.print(buffer[i], BYTE);
+            };
             // set action in buffer
-            char msg[256];
-            int size = sprintf(msg, "Set action_want %u value %u", buffer[0], buffer[1]);
-            debugmsg(msg, size);
             action_want[buffer[0]] = buffer[1];
         } else {
             // check summ failed
-            Serial.print(buffer[0] + buffer[1] + buffer[2], BYTE);
+            /*
+             * write 000
+             */
+            for (int i = 0; i < 3; i++) {
+                Serial.print(0, BYTE);
+            };
             Serial.read(); // shift when checksumm failed
         };
     };
 }
 
 void beat() {
-    static int counter = 0;
-    counter++;
-    if (counter == 1000) { // 1 second
-        fBeat = true; // debug heatbeat
-        rTimeout++;
-        counter = 0;
+    bCounter++;
+    if (bCounter>10000) {
+        Serial.println("beat");
+        lCounter = 0;
     };
     for (int i = 0; i < 256; i++) {
         // is analog?

@@ -43,6 +43,8 @@ class ControllerThread : public PThread {
         void summarizeActions(); // simplify action arrays
         void processActions(); // send 1st action in array to serial
                                // receive response, remove 1st action that already sent
+        bool processTransmit(const unsigned char* message, PINDEX length);
+        bool processReceive(bool force = PFalse);
         /*
          * action queue, 2 bytes
          * 1 byte - action type

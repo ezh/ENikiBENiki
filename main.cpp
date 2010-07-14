@@ -26,7 +26,7 @@
 
 #include "main.h"
 #include "version.h"
-#include "FakeSerial.h"
+//#include "FakeSerial.h"
 #include "Controller.h"
 #include "Resources.h"
 //
@@ -190,11 +190,11 @@ PBoolean ENikiBeNikiProcess::InitializeSerial(PConfigArgs & args)
     } else {
         portName = args.GetOptionString("serialport");
         cout << "serial port is specified. Serial port is set to " << portName << endl;
-        if (portName *= "fake"){
-            pserial = new FakeSerial(); 
-        } else {
+//        if (portName *= "fake"){
+//            pserial = new FakeSerial(); 
+//        } else {
             pserial = new PSerialChannel();
-        };
+//        };
     };
     if (!args.HasOption("baud")) {
         baud = 115200;
