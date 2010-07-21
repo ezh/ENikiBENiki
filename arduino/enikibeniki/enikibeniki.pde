@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define debugmsg(msg, size) Serial.print(0, BYTE);Serial.print(size, BYTE);Serial.print(msg);
@@ -36,7 +36,7 @@
 #define RST 7//reset to center
 
 uint8_t action_is[256]; // current state
-uint8_t action_want[256]; // requested state
+uint16_t action_want[256]; // requested state
 uint8_t buffer[3]; // global packet storage (1st BYTE: N_action, 2nd BYTE: value, 3rd BYTE: check summ)
 int bufferN = 0; // received bytes counter
 int ledPin = 6; // led pin
@@ -114,11 +114,16 @@ void setAnalog(uint8_t action, uint8_t value) {
 }
 
 byte write_pot(int address, int value) {
-  digitalWrite(SLAVESELECT,LOW);
-  //2 byte opcode
-  spi_transfer(address);
-  spi_transfer(value);
-  digitalWrite(SLAVESELECT,HIGH); //release chip, signal end transfer
+#ifdef DEBUG
+    char msg[256];
+    int size = sprintf(msg, "write_pot\tadress %u value %u", address, value);
+    debugmsg(msg, size);
+#endif // def DEBUG
+    digitalWrite(SLAVESELECT,LOW);
+    //2 byte opcode
+    spi_transfer(address);
+    spi_transfer(value);
+    digitalWrite(SLAVESELECT,HIGH); //release chip, signal end transfer
 }
 
 void loop() {
@@ -143,13 +148,17 @@ void loop() {
         // action waiting in buff
         bufferN = 0;
         if ((buffer[0] ^ buffer[1]) == buffer[2]) {
-            // check summ ok
-            Serial.print(buffer[0] + buffer[1] + buffer[2], BYTE);
+            uint8_t rchecksumm = (uint8_t)buffer[0] + (uint8_t)buffer[1] + (uint8_t)buffer[2];
+            if (rchecksumm == 0)
+                rchecksumm = 1;
+            Serial.print(rchecksumm, BYTE);
+#ifdef DEBUG
             // set action in buffer
             char msg[256];
-            int size = sprintf(msg, "Set action_want %u value %u", buffer[0], buffer[1]);
+            int size = sprintf(msg, "loop\tset action_want %u value %u", buffer[0], buffer[1]);
             debugmsg(msg, size);
-            action_want[buffer[0]] = buffer[1];
+#endif // def DEBUG
+            action_want[buffer[0]] = 0xFF + buffer[1];
         } else {
             // check summ failed
             Serial.print(buffer[0] + buffer[1] + buffer[2], BYTE);
@@ -177,7 +186,7 @@ void beat() {
             case 4: // y2
                 //resetAnalog(i); // TODO!!!
                 if (action_want[i] != 0) {
-                    action_is[i] = action_want[i];
+                    action_is[i] = action_want[i] - 0xFF;
                     setAnalog(i, action_is[i]);
                 } else {
                     action_is[i] = 0;
@@ -188,7 +197,7 @@ void beat() {
             // digital
             default:
                 if (action_want[i] != action_is[i]) {
-                    action_is[i] = action_want[i];
+                    action_is[i] = action_want[i] - 0xFF;
                     setDigital(i, action_is[i]);
                 };
                 // keep digital state in action_want

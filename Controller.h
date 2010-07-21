@@ -44,7 +44,7 @@ class ControllerThread : public PThread {
         void processActions(); // send 1st action in array to serial
                                // receive response, remove 1st action that already sent
         bool processTransmit(const unsigned char* message, PINDEX length);
-        bool processReceive(bool force = PFalse);
+        bool processReceive(BYTE expect = 0, bool peek = 0);
         /*
          * action queue, 2 bytes
          * 1 byte - action type
@@ -90,6 +90,8 @@ class ControllerThread : public PThread {
         PSerialChannel * pserial;
         /* I/O timeout ms */
         int timeout;
+        /* limit */
+        int retryLimit;
 };
 
 #endif  // _CONTROLLERTHREAD_H

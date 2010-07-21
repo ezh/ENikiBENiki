@@ -32,6 +32,7 @@ ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, No
     queue.SetReadTimeout(0); // timeout 0 ms
     queue.SetWriteTimeout(0); // timeout 0 ms
     timeout = 100;
+    retryLimit = 5;
     Resume();
 }
 
@@ -66,6 +67,7 @@ void ControllerThread::Main() {
         pserial->Read(buffer, 256); // flush serial data
     } while (pserial->GetLastReadCount());
     memset(buffer, 0, 256);
+    // waiting for heat beat
     do {
         pserial->Read(buffer, 256);
         iRead = pserial->GetLastReadCount();
@@ -180,14 +182,6 @@ PString ControllerThread::dumpAction(const char * szHeader) {
     return streamValues;
 }
 
-            //for(int j = actionSize; j > 0; j--) {
-            //    PTRACE(1, "new size " << j);
-            //    signed char old = action[i]->GetAt(0);
-            //    signed char add = action[i]->GetAt(j);
-            //    action[i]->SetAt(0, old+add);
-            //    action[i]->SetSize(j);
-            //};
-            //break;
 void ControllerThread::summarizeActions() {
     for(int i = 0; i < 256; i++) {
         int actionSize = action[i]->GetSize(); 
@@ -221,119 +215,113 @@ void ControllerThread::processActions() {
             message[0] = i; // action
             message[1] = action[i]->GetAt(0); // value
             message[2] = message[0] ^ message[1]; // check summ
-            // receive information from controller
-            processReceive();
-            if (processTransmit(message.GetPointer(), message.GetSize())) {
-                // transmit was successful, drop 1st action from array
-                for(int j = 0; j < actionSize; j++) {
-                    action[i]->SetAt(j, action[i]->GetAt(j+1));
-                };
-                action[i]->SetSize(actionSize-1);
-            } else {
+            int retry = 0;
+
+            // transmit information to controller
+            if (not processTransmit(message.GetPointer(), message.GetSize())) {
                 PError << "ControllerThread::processActions() data transmit failed" << endl;
+                return;
             };
             // receive information from controller
-            processReceive();
+            if (not processReceive((BYTE)message[0] + (BYTE)message[1] + (BYTE)message[2], PFalse)) {
+                PError << "ControllerThread::processActions() data receive failed" << endl;
+                return;
+            };
+            // conversation was successful, drop 1st action from array
+            for(int j = 0; j < actionSize; j++) {
+                action[i]->SetAt(j, action[i]->GetAt(j+1));
+            };
+            action[i]->SetSize(actionSize-1);
         };
     };
+    processReceive(00, PTrue);
 }
 
+// transmit
 bool ControllerThread::processTransmit(const unsigned char* message, PINDEX length) {
-    int retry = 5;
-    int retransmit = 0;
-    char buffer[1];
+    bool error = PFalse;
+    int retry = 0;
 
     do {
-        PINDEX len = 0;
-        PTime tNow;
-
         // send information to controller
         PTRACE(3, "processActions\tSend query message (hex) "
                 << psprintf("%02x,%02x,%02x", (BYTE)message[0], (BYTE)message[1], (BYTE)message[2])
                 << " to the serial port");
         if (!pserial->Write(message, length)) {
             PError << "write data to serial port failed, error is " << pserial->GetErrorText() << endl;
-        } else {
-            // receive reply from confroller
-            do {
-                pserial->Read(buffer, 1);
-                len += pserial->GetLastReadCount();
-                if ((PTime() - tNow).GetMilliSeconds()>timeout) {
-                    PError << "read data from serial port timeout (trying to read more than " << (PTime() - tNow).GetMilliSeconds() << "ms)" << endl;
-                    break;
-                };
-            } while(len != 1);
-            // process reply
-            if (len == 1) {
-                BYTE summ = (BYTE)message[0] + (BYTE)message[1];
-                PTRACE(3, "processActions\tReceive reply message (hex) "
-                        << psprintf("%02x", (BYTE)buffer[0])
-                        << " from the serial port" << psprintf("%02x", (BYTE)summ));
-                summ += (BYTE)message[2];
-                if ((BYTE)buffer[0] == summ) {
-                    retransmit = 0;
-                } else if (buffer[0] == 0) {
-                    retransmit++;
-                    // force receive information from controller
-                    processReceive(PTrue);
-                } else {
-                    retransmit++;
-                    PTRACE(2, "retransmit(" << retransmit << "), receive broken reply, message:"
-                            << psprintf("%02x,%02x,%02x", (BYTE)message[0], (BYTE)message[1], (BYTE)message[2]) << ", buffer:"
-                            << psprintf("%02x", (BYTE)buffer[0]));
-                };
-            };
+            error = PTrue;
+            retry++;
         };
-    } while(retransmit > 0 and retransmit <= retry);
-    if (retransmit > retry) {
+    } while(error && retry <= retryLimit);
+    if (retry > retryLimit) {
         return PFalse;
     } else {
         return PTrue;
     };
 }
 
-bool ControllerThread::processReceive(bool force) {
-    PTimeInterval readTimeout = pserial->GetReadTimeout();
+// receive
+bool ControllerThread::processReceive(BYTE expect, bool peek) {
     int messageMax = 1024;
-    char buffer[messageMax];
+    BYTE buffer[messageMax];
 
-    pserial->SetReadTimeout(0);
-    buffer[0] = 0;
+    if (expect == 0)
+        expect = 1; // shift control summ
+    if (not peek) {
+        PTRACE(2, "processReceive\tWaiting for: " << psprintf("%02x", (BYTE)expect));
+    };
     do {
-        if (!force) {
+        if (peek) {
+            PTimeInterval readTimeout = pserial->GetReadTimeout();
+            pserial->SetReadTimeout(1);
             pserial->Read(buffer, 1);
+            pserial->SetReadTimeout(readTimeout);
         } else {
-            force = PFalse; // reset force flag
-        };
-        if (pserial->GetLastReadCount() == 1 && buffer[0] == 0) {
-            // message from controller
-            pserial->SetReadTimeout(1000);
             pserial->Read(buffer, 1);
-            if (pserial->GetLastReadCount() == 1) {
-                if (buffer[0] == 0) {
-                    // heatbeat
-                    pserial->SetReadTimeout(0);
-                    continue;
-                } else {
-                    // message
-                    PINDEX length = buffer[0];
-                    PStringStream streamValues;
-                    do {
-                        int read = 0;
-                        pserial->SetReadTimeout(1000);
-                        pserial->Read(buffer, length);
-                        read = pserial->GetLastReadCount();
-                        length -= read;
-                        buffer[read] = '\0';
-                        streamValues << buffer;
-                    } while(length > 0);
-                    pserial->SetReadTimeout(0);
-                    PTRACE(2, "Controller message: " << streamValues);
-                };
-            };
         };
-    } while(pserial->GetLastReadCount() != 0);
-    pserial->SetReadTimeout(readTimeout);
+        if (pserial->GetLastReadCount() == 1) {
+            if (buffer[0] == expect) {
+                PTRACE(2, "processReceive\tCorrect reply: " <<  psprintf("%02x", expect));
+                return PTrue;
+            } else if (buffer[0] == 0) {
+                // message from controller
+                pserial->Read(buffer, 1);
+                if (pserial->GetLastReadCount() == 1) {
+                    if (buffer[0] == 0) {
+                        // heatbeat
+                        PTRACE(2, "processReceive\tController heatbeat");
+                        continue;
+                    } else {
+                        // message
+                        PINDEX length = buffer[0];
+                        PStringStream streamValues;
+                        do {
+                            int read = 0;
+                            pserial->Read(buffer, length);
+                            read = pserial->GetLastReadCount();
+                            length -= read;
+                            buffer[read] = '\0';
+                            streamValues << buffer;
+                        } while(length > 0);
+                        PTRACE(2, "Controller message: " << streamValues);
+                    };
+                };
+            } else {
+                PTRACE(2, "processReceive\treceive broken reply:" << psprintf("%02x", (BYTE)buffer[0]));
+                // flush
+                PTimeInterval readTimeout = pserial->GetReadTimeout();
+                pserial->SetReadTimeout(1);
+                do {
+                    pserial->Read(buffer, messageMax); // flush serial data
+                } while (pserial->GetLastReadCount());
+                pserial->SetReadTimeout(readTimeout);
+                return PFalse;
+            };
+        } else {
+            // if must!
+            return PFalse;
+        };
+    } while(PTrue);
     return PFalse;
 }
 
