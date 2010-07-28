@@ -138,7 +138,7 @@ void UITest::Main() {
             SDL_Event eventFuture;
             int num = SDL_PeepEvents( &eventFuture, 1, SDL_PEEKEVENT, SDL_ALLEVENTS );
             // If this is the same state, ignore this one
-            if (not (num > 0 && eventFuture.type == SDL_MOUSEMOTION &&
+            if (!(num > 0 && eventFuture.type == SDL_MOUSEMOTION &&
                         eventFuture.motion.state == event.motion.state )) {
                 if (event.type == SDL_MOUSEBUTTONDOWN) {
                     eventMouseDown();

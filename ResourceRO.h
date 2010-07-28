@@ -20,11 +20,14 @@
  ***************************************************************************/
 
 #include <ptlib.h>
+#include <stdint.h>
 #include "SDL.h"
 #include "Resource.h"
 
 #ifndef _ResourceRO_H_
 #define _ResourceRO_H_
+
+#undef main
 
 class ResourceRO : public Resource {
     public:

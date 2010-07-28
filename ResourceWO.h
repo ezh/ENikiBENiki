@@ -20,10 +20,14 @@
  ***************************************************************************/
 
 #include <ptlib.h>
+#include <stdint.h>
+#include "SDL.h"
 #include "Resource.h"
 
 #ifndef _ResourceWO_H_
 #define _ResourceWO_H_
+
+#undef main
 
 class ResourceWO {
     public:

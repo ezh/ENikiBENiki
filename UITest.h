@@ -27,6 +27,8 @@
 #ifndef _UITest_H_
 #define _UITest_H_
 
+#undef main
+
 class UITest : public UI {
     public:
         UITest(ControllerThread * _controller, Resources * _resources);

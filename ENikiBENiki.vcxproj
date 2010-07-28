@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Computer.cpp" />
+    <ClCompile Include="Controller.cpp" />
+    <ClCompile Include="FakeSerial.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="precompile.cpp" />
+    <ClCompile Include="Resource.cpp" />
+    <ClCompile Include="ResourceRO.cpp" />
+    <ClCompile Include="Resources.cpp" />
+    <ClCompile Include="ResourceWO.cpp" />
+    <ClCompile Include="UI.cpp" />
+    <ClCompile Include="UIDefault.cpp" />
+    <ClCompile Include="UITest.cpp" />
+    <ClCompile Include="UIXBOX.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Computer.h" />
+    <ClInclude Include="Controller.h" />
+    <ClInclude Include="FakeSerial.h" />
+    <ClInclude Include="main.h" />
+    <ClInclude Include="precompile.h" />
+    <ClInclude Include="Resource.h" />
+    <ClInclude Include="ResourceRO.h" />
+    <ClInclude Include="Resources.h" />
+    <ClInclude Include="ResourceWO.h" />
+    <ClInclude Include="UI.h" />
+    <ClInclude Include="UIDefault.h" />
+    <ClInclude Include="UITest.h" />
+    <ClInclude Include="UIXBOX.h" />
+    <ClInclude Include="version.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{22D841F2-8183-4EDD-AA0E-904834EBEFE4}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>ENikiBENiki</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>C:\ENikiBENiki\external\SDL_ttf\include;C:\ENikiBENiki\external\SDL\include;C:\ENikiBENiki\external\ptlib\include;C:\ENikiBENiki\external\physfs;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\ENikiBENiki\external\SDL_ttf\lib;C:\ENikiBENiki\external\SDL\VisualC\SDL\Release;C:\ENikiBENiki\external\ptlib\Lib;C:\ENikiBENiki\external\physfs\Release;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>C:\ENikiBENiki\external\SDL_ttf\include;C:\ENikiBENiki\external\SDL\include;C:\ENikiBENiki\external\physfs;C:\ENikiBENiki\external\ptlib\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\ENikiBENiki\external\SDL_ttf\lib;C:\ENikiBENiki\external\SDL\VisualC\SDL\Release;C:\ENikiBENiki\external\physfs\Release;C:\ENikiBENiki\external\ptlib\Lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>ptlib.lib;SDL.lib;SDL_ttf.lib;physfs.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>ptlib.lib;SDL.lib;SDL_ttf.lib;physfs.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

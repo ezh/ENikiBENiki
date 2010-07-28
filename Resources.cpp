@@ -167,8 +167,8 @@ ResourceWO * Resources::RetrieveWrite(PString & filename) {
 ResourceRO * Resources::RetrieveRead(PString & filename) {
     PHYSFS_file* file = PHYSFS_openRead(filename);
     if(!file) {
-		int fn_length = filename.GetLength()+1;
-		char fn[fn_length];
+		const int fn_length = filename.GetLength()+1;
+		char fn[4096];
 		memcpy(fn, filename.GetPointer(), fn_length); // includes \0;
 
 		char * folder_sep = strrchr(fn, '/');
@@ -274,6 +274,7 @@ SDL_Surface * Resources::LoadImageOptimized(PString & imageName) {
     SDL_FreeSurface(imageSurface);
     return optimizedSurface;
 }
+
 //int * ResFile::loadFile(char *fileName, int *fileSize) {
 /*    PHYSFS_file *compFile;
     PHYSFS_sint64 fileLength;

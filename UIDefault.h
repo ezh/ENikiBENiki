@@ -26,6 +26,8 @@
 #ifndef _UIDefault_H_
 #define _UIDefault_H_
 
+#undef main
+
 class UIDefault : public UI {
     public:
         UIDefault();

@@ -20,6 +20,7 @@
  ***************************************************************************/
 
 #include <ptlib.h>
+#include <stdint.h>
 #include "physfs.h"
 
 #ifndef _Resource_H_

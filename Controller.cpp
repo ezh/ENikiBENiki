@@ -218,12 +218,12 @@ void ControllerThread::processActions() {
             int retry = 0;
 
             // transmit information to controller
-            if (not processTransmit(message.GetPointer(), message.GetSize())) {
+            if (!processTransmit(message.GetPointer(), message.GetSize())) {
                 PError << "ControllerThread::processActions() data transmit failed" << endl;
                 return;
             };
             // receive information from controller
-            if (not processReceive((BYTE)message[0] + (BYTE)message[1] + (BYTE)message[2], PFalse)) {
+            if (!processReceive((BYTE)message[0] + (BYTE)message[1] + (BYTE)message[2], PFalse)) {
                 PError << "ControllerThread::processActions() data receive failed" << endl;
                 return;
             };
@@ -262,12 +262,12 @@ bool ControllerThread::processTransmit(const unsigned char* message, PINDEX leng
 
 // receive
 bool ControllerThread::processReceive(BYTE expect, bool peek) {
-    int messageMax = 1024;
+    const int messageMax = 1024;
     BYTE buffer[messageMax];
 
     if (expect == 0)
         expect = 1; // shift control summ
-    if (not peek) {
+    if (!peek) {
         PTRACE(2, "processReceive\tWaiting for: " << psprintf("%02x", (BYTE)expect));
     };
     do {

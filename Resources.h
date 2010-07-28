@@ -19,8 +19,14 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <ptlib.h>
+#include <stdint.h>
+#include "SDL.h"
+
 #include "ResourceRO.h"
 #include "ResourceWO.h"
+
+#undef main
 
 #ifndef _Resources_H_
 #define _Resources_H_
