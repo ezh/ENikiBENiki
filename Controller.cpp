@@ -23,12 +23,13 @@
 
 #define new PNEW
 
-ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, NoAutoDeleteThread), queue(1000) {
+ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, NoAutoDeleteThread), queue() {
     PTRACE(4, "Constructor");
     pserial = tserial;
     for(int i = 0; i < 256; i++) {
         action[i] = new PBYTEArray();
     };
+    queue.Open(10000);
     queue.SetReadTimeout(0); // timeout 0 ms
     queue.SetWriteTimeout(0); // timeout 0 ms
     timeout = 100;
@@ -37,12 +38,11 @@ ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, No
 }
 
 ControllerThread::~ControllerThread() {
-    unsigned char i;
-
     PTRACE(4, "Destructor");
-    for(i = 0; i < 256; i++) {
+    for(int i = 0; i < 256; i++) {
         delete action[i];
     };
+    queue.Close();
 }
 
 void ControllerThread::Main() {
@@ -64,11 +64,17 @@ void ControllerThread::Main() {
     pserial->SetDTR();
     pserial->SetRTS();
     do {
+        if (shutdown.Wait(0)) {
+            return;
+        };
         pserial->Read(buffer, 256); // flush serial data
     } while (pserial->GetLastReadCount());
     memset(buffer, 0, 256);
     // waiting for heat beat
     do {
+        if (shutdown.Wait(0)) {
+            return;
+        };
         pserial->Read(buffer, 256);
         iRead = pserial->GetLastReadCount();
         if (iRead == 2 && buffer[0] == 0 && buffer[1] == 0) {

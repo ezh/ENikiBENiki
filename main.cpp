@@ -26,11 +26,12 @@
 
 #include "main.h"
 #include "version.h"
-//#include "FakeSerial.h"
+#include "FakeSerial.h"
 #include "Controller.h"
 #include "Resources.h"
-//
+
 #include "UI.h"
+#include "UIConsole.h"
 #include "UITest.h"
 #include "UIDefault.h"
 
@@ -43,8 +44,7 @@ PCREATE_PROCESS(ENikiBeNikiProcess);
 
 /////////////////////////////////////////////////////////////////////////////
 // Value-Defintions of the different String values
-enum UIStringValue { uiDefault, 
-                          uiTest};
+enum UIStringValue { uiDefault, uiTest, uiConsole };
 // Map to associate the ui strings with the enum values
 static std::map<std::string, UIStringValue> mapUIStringValues;
 
@@ -53,19 +53,23 @@ ENikiBeNikiProcess::ENikiBeNikiProcess()
 {
     mapUIStringValues["default"] = uiDefault;
     mapUIStringValues["test"] = uiTest;
+    mapUIStringValues["console"] = uiConsole;
 }
 
 void ENikiBeNikiProcess::Main()
 {
-    PConfigArgs args(GetArguments());
-    PStringStream progName;
     ControllerThread *controller;
     UI *ui;
     Resources *resources;
+    PConfigArgs args(GetArguments());
+    PStringStream progName;
     PString resourceExt("res");
     PString appName(GetName());
     PString appExec(GetFile());
-    
+    PDirectory homeDir = PXGetHomeDir();
+    PFilePath configPath(homeDir + "." + appName + homeDir[homeDir.GetLength()-1] + "profile.ini"); // $HOME/.NNN/profile.ini
+    PConfig config(configPath, "Options");
+
     args.Parse(
 #if PTRACING
             "t-trace."              "-no-trace."
@@ -89,7 +93,7 @@ void ENikiBeNikiProcess::Main()
     if (args.HasOption("setallocationbreakpoint"))
         PMemoryHeap::SetAllocationBreakpoint(args.GetOptionString("setallocationbreakpoint").AsInteger());
 #endif
-    
+
     progName << "Product Name: " << GetName() << endl
         << "Manufacturer: " << GetManufacturer() << endl
         << "Version     : " << GetVersion(PTrue) << endl
@@ -97,7 +101,7 @@ void ENikiBeNikiProcess::Main()
         << GetOSHardware() << ' '
         << GetOSVersion();
     cout << progName << endl;
-    
+
     if (args.HasOption('v'))
         return;
 
@@ -106,7 +110,7 @@ void ENikiBeNikiProcess::Main()
             args.HasOption('o') ? (const char *)args.GetOptionString('o') : NULL,
             PTrace::Blocks | PTrace::Timestamp | PTrace::Thread | PTrace::FileAndLine);
 #endif
-    
+
     if (args.HasOption('h')) {
         cout << endl
 #if PTRACING
@@ -128,42 +132,44 @@ void ENikiBeNikiProcess::Main()
             << endl;
         return;
     };
-/*
-             "1-test1."       "-no-test1."
-             "2-test2."       "-no-test2."
-             "3-test3."       "-no-test3.");
 
-*/
+    cout << configPath << endl;
+    cout << "-------" << config.HasKey("aaa") << endl;
+    cout << "-------" << config.GetString("aaa") << endl;
+    config.SetString("aaa", "bbb");
     // serial communication
     if (!InitializeSerial(args)) {
         cout << "failed to initialize the program" << endl;
         PThread::Sleep(100);
         return;
     };
-
     cout << "timer resolution reported as " << PTimer::Resolution() << "ms" << endl;
     controller = new ControllerThread(pserial);
     resources = new Resources(resourceExt);
-    if (!resources->Open(appExec, appName)) {
-        return;
+    if (resources->Open(appExec, appName)) {
+        switch(mapUIStringValues[(const char *)args.GetOptionString('u')]) {
+            case uiConsole:
+                ui = new UIConsole(controller, resources);
+                break;
+            case uiTest:
+                ui = new UITest(controller, resources);
+                break;
+            default:
+                ui = new UIDefault(controller, resources);
+                break;
+        };
+        ui->Initialize();
+        ui->Main();
+        // Clean up
+        delete ui;
+        resources->Close();
     };
-    switch(mapUIStringValues[(const char *)args.GetOptionString('u')]) {
-        case uiTest:
-            ui = new UITest(controller, resources);
-            break;
-        default:
-            ui = new UIDefault(controller, resources);
-            break;
-    };
-    ui->Initialize();
-    ui->Main();
-    // Clean up
-    resources->Close();
+    delete resources;
     controller->Stop();
     controller->WaitForTermination();
-    cout << "main thread terminated seccessful" << endl;
-    pserial->Close();
     delete controller;
+    pserial->Close();
+    cout << "main thread terminated seccessful" << endl;
 }
 
 PBoolean ENikiBeNikiProcess::InitializeSerial(PConfigArgs & args)
@@ -190,11 +196,11 @@ PBoolean ENikiBeNikiProcess::InitializeSerial(PConfigArgs & args)
     } else {
         portName = args.GetOptionString("serialport");
         cout << "serial port is specified. Serial port is set to " << portName << endl;
-//        if (portName *= "fake"){
-//            pserial = new FakeSerial(); 
-//        } else {
+        if (portName *= "fake"){
+            pserial = new FakeSerial(); 
+        } else {
             pserial = new PSerialChannel();
-//        };
+        };
     };
     if (!args.HasOption("baud")) {
         baud = 115200;
@@ -267,7 +273,7 @@ PBoolean ENikiBeNikiProcess::InitializeSerial(PConfigArgs & args)
     };
     pserial->SetReadTimeout(10); // timeout 10 ms
     pserial->SetWriteTimeout(10); // timeout 10 ms
- 
+
     return PTrue;
 }
 

@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define debugmsg(msg, size) Serial.print(0, BYTE);Serial.print(size, BYTE);Serial.print(msg);
@@ -99,13 +99,11 @@ void resetAnalog() {
 
 void setAnalog(uint8_t action, uint8_t value) {
     switch(action) {
-        case 1: // x
-            value += 128;
-            write_pot(0, (unsigned int)value);
-            break;
-        case 2: // y
-            value += 128;
-            write_pot(1, (unsigned int)value);
+        case 1: // x1
+        case 2: // y1
+        case 3: // x2
+        case 4: // y2
+            write_pot(action - 1, (unsigned int)value);
             break;
         default:
             break;
@@ -180,6 +178,7 @@ void beat() {
         switch(i) {
             // analog
             case 0: // reserverd for internal use
+                break;
             case 1: // x1
             case 2: // y1
             case 3: // x2

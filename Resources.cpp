@@ -33,6 +33,9 @@
 Resources::Resources(PString & _resourceExt) : resourceExt(_resourceExt) {
 }
 
+Resources::~Resources() {
+}
+
 bool Resources::Open(PString & argv0, PString & application) {
     if(!PHYSFS_init(argv0.GetPointer())) {
         PError << "failure while initialising physfs: " << PHYSFS_getLastError() << endl;

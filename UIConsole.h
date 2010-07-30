@@ -19,67 +19,35 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "FakeSerial.h"
+#include "SDL.h"
+#include "SDL_ttf.h" 
 
-#define new PNEW
+#include "UI.h"
 
-FakeSerial::FakeSerial() : fakequeue(1000) {
-    fakequeue.SetReadTimeout(0); // timeout 0 ms
-    fakequeue.SetWriteTimeout(0); // timeout 0 ms
-    PThread::Create(PCREATE_NOTIFIER(HeatBeat), 30000,
-            PThread::NoAutoDeleteThread,
-            PThread::NormalPriority);
-}
+#ifndef _UIConsole_H_
+#define _UIConsole_H_
 
-PBoolean FakeSerial::Read(void * buf, PINDEX len) {
-    bool result = fakequeue.Read(buf, len);
-    if (result) {
-        lastReadCount = fakequeue.GetLastReadCount();
-    } else {
-        lastReadCount = 0;
-    };
-    return result;
-}
+#undef main
 
-PBoolean FakeSerial::Write(const void * buf, PINDEX len) {
-    bool result = PFalse;
-    const BYTE *pbuf = (BYTE*)buf;
-
-    if (len == 3) {
-        BYTE expect = pbuf[0] + pbuf[1] + pbuf[2];
-        if (expect == 0) {
-            expect = 1;
-        };
-        result = fakequeue.Write(&expect, 1);
-    } else {
-        PError << "unknown message" << endl;
-    };
-    return result;
-}
-
-PINDEX FakeSerial::GetLastReadCount() const {
-    return lastReadCount;
+class UIConsole : public UI {
+    public:
+        UIConsole(ControllerThread * _controller, Resources * _resources);
+        ~UIConsole();
+        void Initialize();
+        void Main();
+    private:
+        void commandPlay();
+        void commandSetAbs(BYTE action, BYTE value);
+        void commandSetRel(BYTE action, BYTE value);
+        BYTE commandGetAbs(BYTE action);
+        BYTE commandGetRel(BYTE action);
+        void commandUnSet(BYTE action);
+        void commandMouse();
+        //Make sure the program waits for a quit
+        bool quit;
 };
 
-PBoolean FakeSerial::Open(const PString & port, DWORD speed, BYTE data, Parity parity, BYTE stop, FlowControl inputFlow, FlowControl outputFlow) {
-    return PTrue;
-};
+#endif  // _UIConsole_H
 
-PBoolean FakeSerial::Close() {
-    return PTrue;
-};
-
-void FakeSerial::SetReadTimeout(const PTimeInterval & time) {
-};
-
-void FakeSerial::SetWriteTimeout(const PTimeInterval & time) {
-};
-
-void FakeSerial::HeatBeat(PThread &, INT) {
-    char buf[2] = {0, 0};
-    for (;;) {
-        fakequeue.Write(buf, 2);
-        PThread::Sleep(1000);
-    };
-}
-
+// End of File ///////////////////////////////////////////////////////////////
+// vim:ft=c:ts=4:sw=4

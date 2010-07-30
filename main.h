@@ -26,6 +26,8 @@
 #include <ptclib/qchannel.h>
 #include <ptlib/serchan.h>
 
+#define APP_CONFIG_DIR ".gamepad fun mod/"
+
 /** The main class that is instantiated to do things */
 class ENikiBeNikiProcess : public PProcess
 {

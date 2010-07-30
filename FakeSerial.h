@@ -38,6 +38,16 @@ class FakeSerial : public PSerialChannel
         void SetReadTimeout(const PTimeInterval & time);
         void SetWriteTimeout(const PTimeInterval & time);
     private:
+#ifdef DOC_PLUS_PLUS
+    /**This Thread will continually restart the first timer. If
+       there is a bug in pwlib, it will eventually lock up and do no more. At
+       which point, the monitor thread will fire, and say, nothing is
+       happening. This thread sets the value of an atomic integer every time
+       it runs, to indicate activity.*/
+        virtual void HeatBeat(PThread &, INT);
+#else
+        PDECLARE_NOTIFIER(PThread, FakeSerial, HeatBeat);
+#endif
         int lastReadCount;
         PQueueChannel fakequeue;
 };
