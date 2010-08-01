@@ -27,20 +27,21 @@ ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, No
     PTRACE(4, "Constructor");
     pserial = tserial;
     for(int i = 0; i < 256; i++) {
-        action[i] = new PBYTEArray();
+        actionQueuePool[i] = new PWORDArray();
     };
     queue.Open(10000);
     queue.SetReadTimeout(0); // timeout 0 ms
     queue.SetWriteTimeout(0); // timeout 0 ms
     timeout = 100;
     retryLimit = 5;
+    fReady = PFalse;
     Resume();
 }
 
 ControllerThread::~ControllerThread() {
     PTRACE(4, "Destructor");
     for(int i = 0; i < 256; i++) {
-        delete action[i];
+        delete actionQueuePool[i];
     };
     queue.Close();
 }
@@ -83,25 +84,24 @@ void ControllerThread::Main() {
         };
     } while(len < 6);
     PTRACE(1, "Arduino initialization done");
+    fReady = PTrue;
 
 
     // loop
     do {
-        unsigned char buffer[3] = {0, 0};
         bool fNewActions = false;
+        BYTE naction;
+        WORD value;
         /*
          * get x, y, button and other events
          */
         PTRACE(6, "Main\t" << dumpAction("actions before population: "));
-        while(popAction(buffer)) {
-            PBYTEArray * actions;
-            BYTE value;
-
+        while(popAction(&naction, &value)) {
+            PWORDArray *actionQueue = actionQueuePool[naction];
+            
             fNewActions = true;
-            actions = action[buffer[0]];
-            value = buffer[1];
-            PTRACE(6, "Main\tadd new value to actions[" << (int)buffer[0] << "] with size " << actions->GetSize());
-            actions->SetAt(actions->GetSize(), value);
+            PTRACE(6, "Main\tadd new value to actionQueuePool[" << (int)naction << "] with queue size " << actionQueue->GetSize());
+            actionQueue->SetAt(actionQueue->GetSize(), value);
         };
         if (fNewActions) {
             PTRACE(6, "Main\t" << dumpAction("actions after population: "));
@@ -143,12 +143,13 @@ void ControllerThread::Stop() {
     shutdown.Signal();
 }
 
-bool ControllerThread::pushAction(BYTE action, BYTE value) {
-    BYTE buffer[2] = {0, 0};
+bool ControllerThread::pushAction(BYTE action, WORD value) {
+    BYTE buffer[3] = {0, 0, 0};
     buffer[0] = action;
-    buffer[1] = value;
+    buffer[1] = (BYTE)value >> 8;
+    buffer[2] = (BYTE)value;
     PTRACE(5, "pushAction\twriting buffer " <<
-            psprintf("%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1]));
+            psprintf("%02x,%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2]));
     if (!queue.Write(buffer, sizeof(buffer))) {
         PError << "pushAction\twrite failed" << endl;
         return false;
@@ -156,12 +157,15 @@ bool ControllerThread::pushAction(BYTE action, BYTE value) {
     return true;
 }
 
-bool ControllerThread::popAction(BYTE buffer[2]) {
-    if (!queue.Read(buffer, 2)) {
+bool ControllerThread::popAction(BYTE* action, WORD* value) {
+    BYTE buffer[3] = {0, 0, 0};
+    if (!queue.Read(buffer, 3)) {
         return PFalse;
     };
+    *action = buffer[0];
+    *value = (((WORD)buffer[1]) << 8) | buffer[2];
     PTRACE(5, "popAction\treading buffer " <<
-            psprintf("%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1]));
+            psprintf("%02x,%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2]));
     return PTrue;
 }
 
@@ -171,12 +175,12 @@ PString ControllerThread::dumpAction(const char * szHeader) {
 
     streamValues << szHeader;
     for(int i = 0; i < 256; i++) {
-        if (!action[i]->IsEmpty()) {
-            int actionSize = action[i]->GetSize(); 
-            BYTE value  = action[i]->GetAt(0);
+        if (!actionQueuePool[i]->IsEmpty()) {
+            int actionSize = actionQueuePool[i]->GetSize(); 
+            BYTE value  = actionQueuePool[i]->GetAt(0);
             streamValues << endl << "actions[" << i << "]: " << (int)value;
             for(int j = 1; j < actionSize; j++) {
-                value  = action[i]->GetAt(j);
+                value  = actionQueuePool[i]->GetAt(j);
                 streamValues << "," << (int)value;
             };
             fEmpty = false;
@@ -190,7 +194,7 @@ PString ControllerThread::dumpAction(const char * szHeader) {
 
 void ControllerThread::summarizeActions() {
     for(int i = 0; i < 256; i++) {
-        int actionSize = action[i]->GetSize(); 
+        int actionSize = actionQueuePool[i]->GetSize(); 
         if (actionSize>1) {
             switch(i) {
                 case 0:
@@ -198,13 +202,13 @@ void ControllerThread::summarizeActions() {
                 case 2:
                 case 3:
                     // replace first absolute value x/y with last
-                    action[i]->SetAt(0, action[i]->GetAt(actionSize));
-                    action[i]->SetSize(1);
+                    actionQueuePool[i]->SetAt(0, actionQueuePool[i]->GetAt(actionSize));
+                    actionQueuePool[i]->SetSize(1);
                     break;
                 default:
                     // keep first 3 digital values
                     if (actionSize>3) {
-                        action[i]->SetSize(3);
+                        actionQueuePool[i]->SetSize(3);
                     };
                     break;
             };
@@ -216,12 +220,11 @@ void ControllerThread::processActions() {
     PBYTEArray message(3);
 
     for(int i = 0; i < 256; i++) {
-        int actionSize = action[i]->GetSize();
+        int actionSize = actionQueuePool[i]->GetSize();
         if (actionSize>0) {
             message[0] = i; // action
-            message[1] = action[i]->GetAt(0); // value
+            message[1] = actionQueuePool[i]->GetAt(0); // value
             message[2] = message[0] ^ message[1]; // check summ
-            int retry = 0;
 
             // transmit information to controller
             if (!processTransmit(message.GetPointer(), message.GetSize())) {
@@ -235,9 +238,9 @@ void ControllerThread::processActions() {
             };
             // conversation was successful, drop 1st action from array
             for(int j = 0; j < actionSize; j++) {
-                action[i]->SetAt(j, action[i]->GetAt(j+1));
+                actionQueuePool[i]->SetAt(j, actionQueuePool[i]->GetAt(j+1));
             };
-            action[i]->SetSize(actionSize-1);
+            actionQueuePool[i]->SetSize(actionSize-1);
         };
     };
     processReceive(00, PTrue);
@@ -329,6 +332,10 @@ bool ControllerThread::processReceive(BYTE expect, bool peek) {
         };
     } while(PTrue);
     return PFalse;
+}
+
+bool  ControllerThread::isReady() {
+    return fReady;
 }
 
 /*        if (len != 0) {

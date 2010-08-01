@@ -137,6 +137,7 @@ void ENikiBeNikiProcess::Main()
     cout << "-------" << config.HasKey("aaa") << endl;
     cout << "-------" << config.GetString("aaa") << endl;
     config.SetString("aaa", "bbb");
+    config.SetString("Gamepad", "aaa", "bbb.xxx,ccc");
     // serial communication
     if (!InitializeSerial(args)) {
         cout << "failed to initialize the program" << endl;
@@ -169,7 +170,7 @@ void ENikiBeNikiProcess::Main()
     controller->WaitForTermination();
     delete controller;
     pserial->Close();
-    cout << "main thread terminated seccessful" << endl;
+    cout << "main thread terminated successful" << endl;
 }
 
 PBoolean ENikiBeNikiProcess::InitializeSerial(PConfigArgs & args)

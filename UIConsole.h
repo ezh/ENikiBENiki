@@ -43,6 +43,7 @@ class UIConsole : public UI {
         BYTE commandGetRel(BYTE action);
         void commandUnSet(BYTE action);
         void commandMouse();
+        void commandReset();
         //Make sure the program waits for a quit
         bool quit;
 };

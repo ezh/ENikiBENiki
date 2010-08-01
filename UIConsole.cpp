@@ -48,6 +48,13 @@ void UIConsole::Main() {
     PRegularExpression regex_getrel("(gr|getrel) [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
     PRegularExpression regex_unset("(u|unset) [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
     PRegularExpression regex_mouse("(m|mouse)", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
+    PRegularExpression regex_reset("(r|reset)", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
+
+    cout << "waiting for arduino..." << endl;
+    while (!controller->isReady()) {
+        PThread::Sleep(100);
+    };
+    cout << "controller ready" << endl;
 
     while (quit == PFalse) {
         cout << "> ";
@@ -65,6 +72,7 @@ void UIConsole::Main() {
                  << "gr,getrel BYTE" << endl
                  << "u,unset BYTE" << endl
                  << "m,mouse" << endl
+                 << "r,reset" << endl
                  << "?,h,help\twrite this help out." << endl
                  << endl;
         } else if (userinput.MatchesRegEx(regex_quit)) {
@@ -110,6 +118,8 @@ void UIConsole::Main() {
             commandUnSet(parts[1].AsUnsigned());
         } else if (userinput.MatchesRegEx(regex_mouse)) {
             commandMouse();
+        } else if (userinput.MatchesRegEx(regex_reset)) {
+            commandReset();
         } else if (!userinput.IsEmpty()) {
             cout << "Unknown command: " << userinput << endl;
         };
@@ -151,9 +161,8 @@ void UIConsole::commandMouse() {
     SDL_Surface * screen;
     int x    = 0;
     int y    = 0;
-    int maxx = 0;
-    int maxy = 0;
     int maximum = 0;
+    int steps = 1;
 
     cout << "enter mouse colibration mode" << endl;
     //Start SDL
@@ -166,25 +175,31 @@ void UIConsole::commandMouse() {
         if (i > 1) {
             SDL_PumpEvents();
             SDL_GetRelativeMouseState(&x, &y);
-            if (x < 0) {
-                x *= -1;
-            };
-            if (x > maxx) {
-                maxx = x;
-            };
-            if (y < 0) {
-                y *= -1;
-            };
-            if (y > maxy) {
-                maxy = y;
+            if (x == 0 && y == 0) {
+                // frequency hole
+                steps++;
+            } else if (steps != 1) { // steps == 1 may be buffered value, but we need real
+                PTRACE(1, "X:" << x << " Y:" << y << " steps:" << steps);
+                if (x < 0) {
+                    x *= -1;
+                };
+                x = x/steps;
+                if (x > maximum) {
+                    PTRACE(1, "MAXIMUM X:" << x);
+                    maximum = x;
+                };
+                y = y/steps;
+                if (y < 0) {
+                    y *= -1;
+                };
+                if (y > maximum) {
+                    PTRACE(1, "MAXIMUM Y:" << y);
+                    maximum = y;
+                };
+                steps = 1;
             };
             PThread::Sleep(1);
         };
-    };
-    if (maxx > maxy) {
-        maximum = maxx;
-    } else {
-        maximum = maxy;
     };
     cout << "maximum offset at ~1kHz: " << maximum << endl;
     SDL_WM_GrabInput(SDL_GRAB_OFF);
@@ -192,6 +207,10 @@ void UIConsole::commandMouse() {
     // Quit SDL
     SDL_Quit();
     cout << "exit mouse colibration mode" << endl;
+};
+
+void UIConsole::commandReset() {
+    controller->pushAction(0, (WORD)1);
 };
 
 void UIConsole::commandSetAbs(BYTE action, BYTE value) {
@@ -202,12 +221,14 @@ void UIConsole::commandSetRel(BYTE action, BYTE value) {
 };
 
 BYTE UIConsole::commandGetAbs(BYTE action) {
+    return 0;
 };
 
 BYTE UIConsole::commandGetRel(BYTE action) {
+    return 0;
 };
 
 void UIConsole::commandUnSet(BYTE action) {
-    controller->pushAction(action, 0);
+    controller->pushAction(action, (WORD)0);
 };
 

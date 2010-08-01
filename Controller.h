@@ -35,10 +35,11 @@ class ControllerThread : public PThread {
         ~ControllerThread();
         virtual void Main(); // main thread loop
         void Stop(); // shutdown routine
-        bool pushAction(BYTE control, BYTE value); // populate queue
+        bool pushAction(BYTE control, WORD value); // populate queue
+        bool isReady();
 
     private:
-        bool popAction(BYTE buffer[2]); // process queue
+        bool popAction(BYTE *action, WORD *value); // process queue
         PString dumpAction(const char * szHeader); // dump to stream action array
         void summarizeActions(); // simplify action arrays
         void processActions(); // send 1st action in array to serial
@@ -85,13 +86,15 @@ class ControllerThread : public PThread {
          * value1 - send this step
          * value2..n - will send after
          */
-        PBYTEArray * action[256];
+        PWORDArray * actionQueuePool[256];
         /* serial communication channel pointer */
         PSerialChannel * pserial;
         /* I/O timeout ms */
         int timeout;
         /* limit */
         int retryLimit;
+        /* Arduino ready */
+        bool fReady;
 };
 
 #endif  // _CONTROLLERTHREAD_H

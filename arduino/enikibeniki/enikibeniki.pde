@@ -19,7 +19,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define debugmsg(msg, size) Serial.print(0, BYTE);Serial.print(size, BYTE);Serial.print(msg);
@@ -150,13 +150,30 @@ void loop() {
             if (rchecksumm == 0)
                 rchecksumm = 1;
             Serial.print(rchecksumm, BYTE);
+            if (buffer[0] == 0 && buffer[1] == 1) {
+                // reset
 #ifdef DEBUG
-            // set action in buffer
-            char msg[256];
-            int size = sprintf(msg, "loop\tset action_want %u value %u", buffer[0], buffer[1]);
-            debugmsg(msg, size);
+                char msg[256];
+                int size = sprintf(msg, "reset");
+                debugmsg(msg, size);
 #endif // def DEBUG
-            action_want[buffer[0]] = 0xFF + buffer[1];
+                for (int i=0; i<256; i++) {
+                    action_is[i] = 0;
+                    action_want[i] = 0;
+                };
+                setAnalog(1, 0);
+                setAnalog(2, 0);
+                setAnalog(3, 0);
+                setAnalog(4, 0);
+            } else {
+#ifdef DEBUG
+                // set action in buffer
+                char msg[256];
+                int size = sprintf(msg, "loop\tset action_want %u value %u", buffer[0], buffer[1]);
+                debugmsg(msg, size);
+#endif // def DEBUG
+                action_want[buffer[0]] = 0xFF + buffer[1];
+            };
         } else {
             // check summ failed
             Serial.print(buffer[0] + buffer[1] + buffer[2], BYTE);
