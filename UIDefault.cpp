@@ -41,12 +41,12 @@ UIDefault::~UIDefault() {
     SDL_Quit();
 }
 
-void UIDefault::Initialize() {
+bool UIDefault::Initialize() {
     //Set up screen
     screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
     //If there was an error in setting up the screen
     if( screen == NULL ) {
-        return;
+        return PFalse;
     };
     //Set the window caption
     SDL_WM_SetCaption( "ENikiBeNiki", NULL ); 
@@ -56,6 +56,8 @@ void UIDefault::Initialize() {
     SDL_BlitSurface( hello, NULL, screen, NULL );
     //Update Screen
     SDL_Flip(screen);
+
+    return PTrue;
 }
 
 void UIDefault::Main() {

@@ -32,9 +32,10 @@ UIConsole::UIConsole(ControllerThread * _controller, Resources * _resources) :
 UIConsole::~UIConsole() {
 }
 
-void UIConsole::Initialize() {
+bool UIConsole::Initialize() {
     SDL_WM_GrabInput(SDL_GRAB_ON);
     cout << "XBOX console mode initialized" << endl;
+    return PTrue;
 }
 
 void UIConsole::Main() {

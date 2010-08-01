@@ -64,7 +64,7 @@ UITest::~UITest() {
     SDL_Quit();
 }
 
-void UITest::Initialize() {
+bool UITest::Initialize() {
     PString backgroundJumpOnName("TestUI/TestUIJumpON.bmp");
     PString backgroundJumpOffName("TestUI/TestUIJumpOFF.bmp");
     PString ledOnName("TestUI/ledOn.bmp");
@@ -77,7 +77,7 @@ void UITest::Initialize() {
     //If there was an error in setting up the screen
     if( screen == NULL ) {
         PError << "an error in setting up the screen" << endl;
-        return;
+        return PFalse;
     };
     // set the window caption
     SDL_WM_SetCaption( "ENikiBeNiki", NULL ); 
@@ -85,12 +85,12 @@ void UITest::Initialize() {
     backgroundJumpOn = resources->LoadImageOptimized(backgroundJumpOnName);
     if (!backgroundJumpOn) {
         PError << "an error loading" << endl;
-        return;
+        return PFalse;
     };
     backgroundJumpOff = resources->LoadImageOptimized(backgroundJumpOffName);
     if (!backgroundJumpOff) {
         PError << "an error loading" << endl;
-        return;
+        return PFalse;
     };
     ledOn        = resources->LoadImageOptimized(ledOnName);
     crosshairOn  = resources->LoadImageOptimized(crosshairOnName);
@@ -110,18 +110,18 @@ void UITest::Initialize() {
     if (0 > TTF_Init()) {
         PError << "TTF_Init() failed" << endl;
         TTF_Quit();
-        return;
+        return PFalse;
     };
     if (NULL == (font = TTF_OpenFont("Vera.ttf", 20))) {
         PError << "Font '" << "Vera.ttf" << "'failed" << endl;
-        return;
+        return PFalse;
     };
     for (int i = 0; i < 256;i++) {
         PString text(i-128);
         SDL_Surface* generatedImage = TTF_RenderText_Solid(font, text, textColor);
         if (generatedImage == NULL) {
             PError << "error in rendering the text" << endl;
-            return;
+            return PFalse;
         };
         //Create an optimized image
         digitals[i] = SDL_DisplayFormat(generatedImage);
@@ -129,6 +129,7 @@ void UITest::Initialize() {
         SDL_FreeSurface(generatedImage);
     };
     UpdateUIAndControls(331, 299); //center
+    return PTrue;
 }
 
 void UITest::Main() {

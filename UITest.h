@@ -33,7 +33,7 @@ class UITest : public UI {
     public:
         UITest(ControllerThread * _controller, Resources * _resources);
         ~UITest();
-        void Initialize();
+        bool Initialize();
         void Main();
     private:
         void UpdateUIAndControls(int x, int y);

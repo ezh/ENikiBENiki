@@ -33,7 +33,7 @@ class UIDefault : public UI {
         UIDefault();
         UIDefault(ControllerThread * _controller, Resources * _resources);
         ~UIDefault();
-        void Initialize();
+        bool Initialize();
         void Main();
     private:
         //The images

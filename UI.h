@@ -28,7 +28,7 @@
 class UI {
     public:
         UI(ControllerThread * _controller, Resources * _resources);
-        virtual void Initialize() = 0;
+        virtual bool Initialize() = 0;
         virtual void Main() = 0;
     protected:
         ControllerThread * controller;

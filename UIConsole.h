@@ -33,7 +33,7 @@ class UIConsole : public UI {
     public:
         UIConsole(ControllerThread * _controller, Resources * _resources);
         ~UIConsole();
-        void Initialize();
+        bool Initialize();
         void Main();
     private:
         void commandPlay();

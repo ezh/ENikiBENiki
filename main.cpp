@@ -31,6 +31,7 @@
 #include "Resources.h"
 
 #include "UI.h"
+#include "UIXBox.h"
 #include "UIConsole.h"
 #include "UITest.h"
 #include "UIDefault.h"
@@ -44,7 +45,7 @@ PCREATE_PROCESS(ENikiBeNikiProcess);
 
 /////////////////////////////////////////////////////////////////////////////
 // Value-Defintions of the different String values
-enum UIStringValue { uiDefault, uiTest, uiConsole };
+enum UIStringValue { uiDefault, uiTest, uiConsole, uiXBox };
 // Map to associate the ui strings with the enum values
 static std::map<std::string, UIStringValue> mapUIStringValues;
 
@@ -54,6 +55,7 @@ ENikiBeNikiProcess::ENikiBeNikiProcess()
     mapUIStringValues["default"] = uiDefault;
     mapUIStringValues["test"] = uiTest;
     mapUIStringValues["console"] = uiConsole;
+    mapUIStringValues["xbox"] = uiXBox;
 }
 
 void ENikiBeNikiProcess::Main()
@@ -149,6 +151,9 @@ void ENikiBeNikiProcess::Main()
     resources = new Resources(resourceExt);
     if (resources->Open(appExec, appName)) {
         switch(mapUIStringValues[(const char *)args.GetOptionString('u')]) {
+            case uiXBox:
+                ui = new UIXBox(controller, resources);
+                break;
             case uiConsole:
                 ui = new UIConsole(controller, resources);
                 break;
@@ -159,8 +164,9 @@ void ENikiBeNikiProcess::Main()
                 ui = new UIDefault(controller, resources);
                 break;
         };
-        ui->Initialize();
-        ui->Main();
+        if (ui->Initialize()) {
+            ui->Main();
+        };
         // Clean up
         delete ui;
         resources->Close();
