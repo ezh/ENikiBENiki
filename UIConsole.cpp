@@ -23,9 +23,9 @@
 
 #define new PNEW
 
-UIConsole::UIConsole(ControllerThread * _controller, Resources * _resources) :
-    UI(_controller, _resources) {
-    
+UIConsole::UIConsole(ControllerThread * _controller, Resources * _resources, PConfig * _config) :
+    UI(_controller, _resources, _config) {
+
     quit   = PFalse;
 }
 

@@ -23,7 +23,11 @@
 
 #define new PNEW
 
-UI::UI(ControllerThread * _controller, Resources * _resources) {
+UI::UI(ControllerThread * _controller, Resources * _resources, PConfig * _config) {
     controller = _controller;
     resources  = _resources;
+    config     = _config;
+}
+
+UI::~UI() {
 }

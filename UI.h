@@ -27,12 +27,14 @@
 
 class UI {
     public:
-        UI(ControllerThread * _controller, Resources * _resources);
+        UI(ControllerThread * _controller, Resources * _resources, PConfig * _config);
         virtual bool Initialize() = 0;
         virtual void Main() = 0;
+        virtual ~UI();
     protected:
         ControllerThread * controller;
         Resources * resources;
+        PConfig * config;
 };
 
 #endif  // _UI_H

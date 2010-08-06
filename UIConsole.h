@@ -31,8 +31,8 @@
 
 class UIConsole : public UI {
     public:
-        UIConsole(ControllerThread * _controller, Resources * _resources);
-        ~UIConsole();
+        UIConsole(ControllerThread * _controller, Resources * _resources, PConfig * _config);
+        virtual ~UIConsole();
         bool Initialize();
         void Main();
     private:

@@ -152,16 +152,16 @@ void ENikiBeNikiProcess::Main()
     if (resources->Open(appExec, appName)) {
         switch(mapUIStringValues[(const char *)args.GetOptionString('u')]) {
             case uiXBox:
-                ui = new UIXBox(controller, resources);
+                ui = new UIXBox(controller, resources, &config);
                 break;
             case uiConsole:
-                ui = new UIConsole(controller, resources);
+                ui = new UIConsole(controller, resources, &config);
                 break;
             case uiTest:
-                ui = new UITest(controller, resources);
+                ui = new UITest(controller, resources, &config);
                 break;
             default:
-                ui = new UIDefault(controller, resources);
+                ui = new UIDefault(controller, resources, &config);
                 break;
         };
         if (ui->Initialize()) {

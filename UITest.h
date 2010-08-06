@@ -31,8 +31,8 @@
 
 class UITest : public UI {
     public:
-        UITest(ControllerThread * _controller, Resources * _resources);
-        ~UITest();
+        UITest(ControllerThread * _controller, Resources * _resources, PConfig * _config);
+        virtual ~UITest();
         bool Initialize();
         void Main();
     private:

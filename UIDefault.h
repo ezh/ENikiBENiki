@@ -31,8 +31,8 @@
 class UIDefault : public UI {
     public:
         UIDefault();
-        UIDefault(ControllerThread * _controller, Resources * _resources);
-        ~UIDefault();
+        UIDefault(ControllerThread * _controller, Resources * _resources, PConfig * _config);
+        virtual ~UIDefault();
         bool Initialize();
         void Main();
     private:

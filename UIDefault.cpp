@@ -23,7 +23,8 @@
 
 #define new PNEW
 
-UIDefault::UIDefault(ControllerThread * _controller, Resources * _resources) : UI(_controller, _resources) {
+UIDefault::UIDefault(ControllerThread * _controller, Resources * _resources, PConfig * _config) :
+    UI(_controller, _resources, _config) {
     //Start SDL
     SDL_Init(SDL_INIT_EVERYTHING);
 

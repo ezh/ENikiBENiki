@@ -23,8 +23,8 @@
 
 #define new PNEW
 
-UITest::UITest(ControllerThread * _controller, Resources * _resources) :
-    UI(_controller, _resources) {
+UITest::UITest(ControllerThread * _controller, Resources * _resources, PConfig * _config) :
+    UI(_controller, _resources, _config) {
     //Start SDL
     SDL_Init(SDL_INIT_EVERYTHING);
 
