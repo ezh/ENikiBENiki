@@ -33,36 +33,16 @@
 class UIXBoxBinding : public PThread {
     PCLASSINFO(UIXBoxBinding, PThread);
     public:
-        UIXBoxBinding(PString _binding, PString _code, ControllerThread * _controller);
+        UIXBoxBinding(PString _binding, int _code, PString _script, void *(*codeKeyToClass)[32767], ControllerThread *_controller, PConfig *config);
         virtual ~UIXBoxBinding();
         void Main();
         void Stop();
         void SomethingBegin(SDL_Event &tevent);
         void SomethingEnd(SDL_Event &tevent);
     private:
-        // script functions
-        static UIXBoxBinding* GetThis(lua_State* L);
-        static int strikeControlX1(lua_State* L);
-        static int strikeControlY1(lua_State* L);
-        static int strikeControlX2(lua_State* L);
-        static int strikeControlY2(lua_State* L);
-        static int setControlDU(lua_State* L);
-        static int setControlDD(lua_State* L);
-        static int setControlDL(lua_State* L);
-        static int setControlDR(lua_State* L);
-        static int setControlBack(lua_State* L);
-        static int setControlGuide(lua_State* L);
-        static int setControlStart(lua_State* L);
-        static int setControlTL(lua_State* L);
-        static int setControlTR(lua_State* L);
-        static int setControlA(lua_State* L);
-        static int setControlB(lua_State* L);
-        static int setControlX(lua_State* L);
-        static int setControlY(lua_State* L);
-        static int addControlLB(lua_State* L);
-        static int addControlRB(lua_State* L);
-        static int setControlLT(lua_State* L);
-        static int setControlRT(lua_State* L);
+        // lua script functions
+        static int analogControl(lua_State* L);     // mouse action N  0..100.00% (1ms signal) OR keyboard action 50+N 0..100.00 (persistent), where 0 < N < 10
+        static int digitalControl(lua_State* L);    // action N 0/1, where 10 <= N < 50
         // execution context
         ControllerThread * controller;
         SDL_Event * event; // last event
@@ -73,7 +53,7 @@ class UIXBoxBinding : public PThread {
         PAtomicInteger statePhase;
         lua_State *L;
         PString binding;
-        PString code;
+        PString script;
 };
 
 #endif  // _UIXBoxBinding_H_

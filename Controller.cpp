@@ -23,7 +23,7 @@
 
 #define new PNEW
 
-ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, NoAutoDeleteThread), queue() {
+ControllerThread::ControllerThread(PSerialChannel *tserial, PConfig *config) : PThread(10000, NoAutoDeleteThread), queue() {
     PTRACE(4, "Constructor");
     pserial = tserial;
     for(int i = 0; i < 256; i++) {
@@ -35,6 +35,7 @@ ControllerThread::ControllerThread(PSerialChannel * tserial) : PThread(10000, No
     timeout = 100;
     retryLimit = 5;
     fReady = PFalse;
+    mouseMaximum = config->GetInteger("Mouse", "maximumOffsetPerMicrosecond", 30);
     Resume();
 }
 
@@ -146,10 +147,10 @@ void ControllerThread::Stop() {
 bool ControllerThread::pushAction(BYTE action, WORD value) {
     BYTE buffer[3] = {0, 0, 0};
     buffer[0] = action;
-    buffer[1] = (BYTE)value >> 8;
+    buffer[1] = (BYTE)(value >> 8);
     buffer[2] = (BYTE)value;
     PTRACE(5, "pushAction\twriting buffer " <<
-            psprintf("%02x,%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2]));
+            psprintf("%02x,(%02x%02xh OR %i OR unsinged %u)", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2], (int16_t)value, (WORD)value));
     if (!queue.Write(buffer, sizeof(buffer))) {
         PError << "pushAction\twrite failed" << endl;
         return false;
@@ -165,7 +166,7 @@ bool ControllerThread::popAction(BYTE* action, WORD* value) {
     *action = buffer[0];
     *value = (((WORD)buffer[1]) << 8) | buffer[2];
     PTRACE(5, "popAction\treading buffer " <<
-            psprintf("%02x,%02x,%02x", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2]));
+            psprintf("%02x,(%02x%02xh OR %i OR unsinged %u)", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2], (int16_t)*value, (WORD)*value));
     return PTrue;
 }
 
@@ -222,8 +223,31 @@ void ControllerThread::processActions() {
     for(int i = 0; i < 256; i++) {
         int actionSize = actionQueuePool[i]->GetSize();
         if (actionSize>0) {
+            BYTE action = i;
+            WORD value  = actionQueuePool[i]->GetAt(0);
+            if (action>0 and action<10) {
+                // process relative motion actions (axis x1,y1,x2 ...)
+                PTRACE(1, "REL AXIS");
+            } else if (action>=10 and action<50) {
+                // process absolute trigger action (buttons A,B,...)
+                if (value!=0) {
+                    value = 1;
+                };
+            } else if (action>=50) {
+                // process absolute motion actions in persents (axis x1,y1,x2 ...)
+                // lookup for value in calibration table
+                if (value>10000) {
+                    value = 10000;
+                };
+                if (value<-10000) {
+                    value = -10000;
+                };
+                value += 10000; // -100,00 -> 0,00 and 100.00 -> 200.00
+                // look at 0 .. 20000
+                //value = calibrationTable[value];
+            };
             message[0] = i; // action
-            message[1] = actionQueuePool[i]->GetAt(0); // value
+            message[1] = (BYTE)value; // value
             message[2] = message[0] ^ message[1]; // check summ
 
             // transmit information to controller

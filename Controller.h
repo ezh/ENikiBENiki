@@ -31,7 +31,7 @@ class ControllerThread : public PThread {
 
     public:
         /**Constructor, which initalises version number, application name etc*/
-        ControllerThread(PSerialChannel * tserial);
+        ControllerThread(PSerialChannel * tserial, PConfig *config);
         ~ControllerThread();
         virtual void Main(); // main thread loop
         void Stop(); // shutdown routine
@@ -95,6 +95,8 @@ class ControllerThread : public PThread {
         int retryLimit;
         /* Arduino ready */
         bool fReady;
+        int mouseMaximum;
+        PBYTEArray *calibrationTable[10];
 };
 
 #endif  // _CONTROLLERTHREAD_H

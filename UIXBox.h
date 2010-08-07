@@ -29,6 +29,31 @@
 
 #undef main
 
+// special codes
+// mouse axis X,Y,Z,...
+#define MOUSE_N0 32000
+#define MOUSE_N1 32001
+#define MOUSE_N2 32002
+#define MOUSE_N3 32003
+#define MOUSE_N4 32004
+#define MOUSE_N5 32005
+#define MOUSE_N6 32006
+#define MOUSE_N7 32007
+#define MOUSE_N8 32008
+#define MOUSE_N9 32009
+// mouse buttons 1,2,3,...
+#define MOUSE_B0 32010
+#define MOUSE_B1 32011
+#define MOUSE_B2 32012
+#define MOUSE_B3 32013
+#define MOUSE_B4 32014
+#define MOUSE_B5 32015
+#define MOUSE_B6 32016
+#define MOUSE_B7 32017
+#define MOUSE_B8 32018
+#define MOUSE_B9 32019
+
+
 class UIXBox : public UI {
     public:
         UIXBox(ControllerThread * _controller, Resources * _resources, PConfig * _config);
@@ -126,6 +151,7 @@ class UIXBox : public UI {
         //TTF_Font * font;
         //SDL_Color textColor;
         PSyncPoint sync;
+        PConfig *config;
 };
 
 #endif  // _UITest_H_

@@ -147,7 +147,7 @@ void ENikiBeNikiProcess::Main()
         return;
     };
     cout << "timer resolution reported as " << PTimer::Resolution() << "ms" << endl;
-    controller = new ControllerThread(pserial);
+    controller = new ControllerThread(pserial, &config);
     resources = new Resources(resourceExt);
     if (resources->Open(appExec, appName)) {
         switch(mapUIStringValues[(const char *)args.GetOptionString('u')]) {

@@ -30,6 +30,7 @@ UIXBox::UIXBox(ControllerThread * _controller, Resources * _resources, PConfig *
     SDL_Init(SDL_INIT_EVERYTHING);
 
     // global
+    config = _config;
     screen = NULL;
     quit   = PFalse;
     active = PFalse;
@@ -223,23 +224,26 @@ bool UIXBox::Initialize() {
     RegisterKey("alt",   SDLK_LALT);
     RegisterKey("meta",  SDLK_LMETA);
     // special values
-    RegisterKey("mouse_x",  -1);
-    RegisterKey("mouse_y",  -2);
-    RegisterKey("mouse_n1", -3);
-    RegisterKey("mouse_n2", -4);
-    RegisterKey("mouse_n3", -5);
-    RegisterKey("mouse_n4", -6);
-    RegisterKey("mouse_n5", -7);
-    RegisterKey("mouse_0",  -8);
-    RegisterKey("mouse_1",  -9);
-    RegisterKey("mouse_2", -10);
-    RegisterKey("mouse_3", -11);
-    RegisterKey("mouse_4", -12);
-    RegisterKey("mouse_5", -13);
-    RegisterKey("mouse_6", -14);
-    RegisterKey("mouse_7", -15);
-    RegisterKey("mouse_8", -16);
-    RegisterKey("mouse_9", -17);
+    RegisterKey("mouse_axis0",  MOUSE_N0);
+    RegisterKey("mouse_axis1",  MOUSE_N1);
+    RegisterKey("mouse_axis2",  MOUSE_N2);
+    RegisterKey("mouse_axis3",  MOUSE_N3);
+    RegisterKey("mouse_axis4",  MOUSE_N4);
+    RegisterKey("mouse_axis5",  MOUSE_N5);
+    RegisterKey("mouse_axis6",  MOUSE_N6);
+    RegisterKey("mouse_axis7",  MOUSE_N7);
+    RegisterKey("mouse_axis8",  MOUSE_N8);
+    RegisterKey("mouse_axis9",  MOUSE_N9);
+    RegisterKey("mouse_button0",MOUSE_N0);
+    RegisterKey("mouse_button1",MOUSE_N1);
+    RegisterKey("mouse_button2",MOUSE_N2);
+    RegisterKey("mouse_button3",MOUSE_N3);
+    RegisterKey("mouse_button4",MOUSE_N4);
+    RegisterKey("mouse_button5",MOUSE_N5);
+    RegisterKey("mouse_button6",MOUSE_N6);
+    RegisterKey("mouse_button7",MOUSE_N7);
+    RegisterKey("mouse_button8",MOUSE_N8);
+    RegisterKey("mouse_button9",MOUSE_N9);
     PStringArray keys = config->GetKeys("Bindings");
     if (keys.GetSize() == 0) {
         PError << "binding lost in space... fix it before continue" << endl;
@@ -249,26 +253,11 @@ bool UIXBox::Initialize() {
         PTRACE(1, "Key " << (i + 1) << " of " << keys.GetSize() << " is " << keys[i]);
         if (keyNameToCode.find(keys[i]) != keyNameToCode.end()) {
             BindKeyToClass(keyNameToCode[keys[i]],
-                    new UIXBoxBinding(keys[i], config->GetString("Bindings", keys[i], ""), controller));
+                    new UIXBoxBinding(keys[i], keyNameToCode[keys[i]], config->GetString("Bindings", keys[i], ""), &codeKeyToClass, controller, config));
         } else {
             PError << "unknown key in section [Bindings]: " << keys[i] << endl;
         };
     };
-/*    const char *lua_code = "print(SLB.ui)\n";
-    // Custom SLB::SCript, a simplification to use SLB
-    SLB::Script s;
-    s.doString(lua_code);
-     but you can include SLB features on any lua_State
-    // Create a lua State, using normal lua API
-    lua_State *L = luaL_newstate();
-    // load default functions (the current example uses print)
-    // and by default, SLB::Script does this.
-    luaL_openlibs(L);
-    // Register SLB inside the lua_State, calling the SLB::Manager
-    // that handles bindings, default functions, default values...
-    SLB::Manager::getInstance().registerSLB(L);
-    // No call lua API to execute the same code as above
-    luaL_dostring(L, lua_code); // execute code*/
 
     return PTrue;
 }
@@ -312,12 +301,6 @@ void UIXBox::Main() {
 void UIXBox::eventMouseUp() {
     if (active) {
     };
-/*    if (nMouseState == 1 && event.button.button == SDL_BUTTON_LEFT && jumpToCenter) {
-        // release left button
-        SDL_WM_GrabInput(SDL_GRAB_OFF);
-        nMouseState = 0;
-        UpdateUIAndControls(331, 299); //center
-    };*/
 }
 
 void UIXBox::eventMouseDown() {
@@ -326,119 +309,25 @@ void UIXBox::eventMouseDown() {
         if (event.button.button == SDL_BUTTON_LEFT) {
             // If the left mouse button was pressed
             SDL_WM_GrabInput(SDL_GRAB_ON);
+            SDL_ShowCursor(SDL_DISABLE);
             active = 1;
             UpdateUIAndControls();
             return;
         };
     };
-/*    int x = event.button.x;
-    int y = event.button.y; 
-    if (nMouseState == 0 && event.button.button == SDL_BUTTON_RIGHT) {
-        UpdateUIAndControls(331, 299); //center
-        return;
-    };
-    if (event.button.button == SDL_BUTTON_LEFT) {
-        PTRACE(5, "eventMouseDown\tclick left x:" << x << " y:" << y);
-    };
-    if (nMouseState > 0 && event.button.button == SDL_BUTTON_LEFT) {
-        // If the left mouse button was pressed
-        SDL_WM_GrabInput(SDL_GRAB_OFF);
-        //SDL_ShowCursor(SDL_ENABLE);
-        if (nMouseState == 1) {
-            // main field
-            nMouseState = 0;
-            UpdateUIAndControls(x, y);
-        } else if (nMouseState == 2) {
-            // scroll X
-            UpdateUIAndControls(x, crossY);
-        } else if (nMouseState == 3) {
-            // scroll Y
-            UpdateUIAndControls(crossX, y);
-        };
-        nMouseState = 0;
-        return;
-    };
-    if (nMouseState == 0) {
-        // If the mouse is over the main field
-        if ((x > boxMainField.x) && (x < boxMainField.x + boxMainField.w) &&
-                (y > boxMainField.y) && (y < boxMainField.y + boxMainField.h) ) {
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                nMouseState = 1;
-                //SDL_WM_GrabInput(SDL_GRAB_ON);
-                //SDL_ShowCursor(SDL_DISABLE);
-                UpdateUIAndControls(x, y);
-            };
-            return;
-        };
-        // If mouse is over the x scroller
-        if ((x > crossX - arrowTop->w/2) && (x < crossX + arrowTop->w/2) &&
-                (y > arrowOffsetY - arrowTop->h/2) && (y < arrowOffsetY + arrowTop->h/2)) {
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                nMouseState = 2;
-                //SDL_WM_GrabInput(SDL_GRAB_ON);
-                //SDL_ShowCursor(SDL_DISABLE);
-                UpdateUIAndControls(x, crossY);
-            };
-        };
-        // If mouse is over the y scroller
-        if ((x > arrowOffsetX - arrowRight->w/2) && (x < arrowOffsetX + arrowRight->w/2) &&
-                (y > crossY - arrowRight->h/2) && (y < crossY + arrowRight->h/2)) {
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                nMouseState = 3;
-                //SDL_WM_GrabInput(SDL_GRAB_ON);
-                //SDL_ShowCursor(SDL_DISABLE);
-                UpdateUIAndControls(crossX, y);
-            };
-        };
-        // If the mouse is over led
-        if ((x > 100) && (x < 150) &&
-                (y > 10) && (y < 60) ) {
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                if (ledStatus) {
-                    // turn led OFF
-                    ledStatus = PFalse;
-                    controller->pushAction(5, (BYTE)0);
-                    UpdateUIAndControls(crossX, crossY);
-                } else {
-                    // turn led ON
-                    ledStatus = PTrue;
-                    controller->pushAction(5, (BYTE)1);
-                    UpdateUIAndControls(crossX, crossY);
-                };
-            };
-            return;
-        };
-        // If mouse is over jumpTo checkbox
-        if ((x > 540) && (x < 600) &&
-                (y > 365) && (y < 425) ) {
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                if (jumpToCenter) {
-                    // turn led OFF
-                    jumpToCenter = PFalse;
-                } else {
-                    // turn led ON
-                    jumpToCenter = PTrue;
-                };
-                UpdateUIAndControls(crossX, crossY);
-            };
-            return;
-        };
-    };*/
 }
 
 void UIXBox::eventMouseMotion() {
-/*    int x = event.motion.x;
-    int y = event.motion.y;
-    if (nMouseState == 1) {
-        // main field
-        UpdateUIAndControls(x, y);
-    } else if (nMouseState == 2) {
-        // scroll X
-        UpdateUIAndControls(x, crossY);
-    } else if (nMouseState == 3) {
-        // scroll Y
-        UpdateUIAndControls(crossX, y);
-    };*/
+    if (active) {
+        UIXBoxBinding* pUIXBoxBindingX = (UIXBoxBinding*)codeKeyToClass[MOUSE_N0];
+        UIXBoxBinding* pUIXBoxBindingY = (UIXBoxBinding*)codeKeyToClass[MOUSE_N1];
+        if (pUIXBoxBindingX) {
+            pUIXBoxBindingX->SomethingBegin(event);
+        };
+        if (pUIXBoxBindingY) {
+            pUIXBoxBindingY->SomethingBegin(event);
+        };
+    };
 }
 
 void UIXBox::eventKeyDown() {
@@ -451,6 +340,7 @@ void UIXBox::eventKeyDown() {
     if (event.key.keysym.sym == SDLK_ESCAPE) {
         if (active) {
             active = PFalse;
+            SDL_ShowCursor(SDL_ENABLE);
             SDL_WM_GrabInput(SDL_GRAB_OFF);
             UpdateUIAndControls();
         } else {
