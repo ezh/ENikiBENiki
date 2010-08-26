@@ -1,6 +1,7 @@
 /***************************************************************************
- * Copyright (C) 2010 by Alexey Aksenov, Alexey Fomichev                   *
- * ezh@ezh.msk.ru, axx@fomichi.ru                                          *
+ * Copyright (C) 2010 Alexey Aksenov, Alexx Fomichew                       *
+ * Alexey Aksenov (ezh at ezh.msk.ru) software, firmware                   *
+ * Alexx Fomichew (axx at fomichi.ru) hardware                             *
  *                                                                         *
  * This file is part of ENikiBENiki                                        *
  *                                                                         *
@@ -23,11 +24,15 @@
 
 #define new PNEW
 
+#define POTENTIOMETER_SCALE 256
+
 ControllerThread::ControllerThread(PSerialChannel *tserial, PConfig *config) : PThread(10000, NoAutoDeleteThread), queue() {
-    PTRACE(4, "Constructor");
+    PStringArray analogControls = (config->GetString("Gamepad", "AnalogControl", "")).ToUpper().Tokenise(",", PFalse);
     pserial = tserial;
+
+    PTRACE(2, "Constructing instance for controller");
     for(int i = 0; i < 256; i++) {
-        actionQueuePool[i] = new PWORDArray();
+        actionQueuePool[i] = new PIntArray();
     };
     queue.Open(10000);
     queue.SetReadTimeout(0); // timeout 0 ms
@@ -35,7 +40,75 @@ ControllerThread::ControllerThread(PSerialChannel *tserial, PConfig *config) : P
     timeout = 100;
     retryLimit = 5;
     fReady = PFalse;
-    mouseMaximum = config->GetInteger("Mouse", "maximumOffsetPerMicrosecond", 30);
+    mouseMaximum = config->GetInteger("Mouse", "maximumOffsetPerMillisecond", 30);
+    for (PINDEX i = 0; i < 10; i++) {
+        calibrationTable[i] = new PIntArray;
+    };
+    for (PINDEX i = 0; i < analogControls.GetSize(); i++) {
+        PStringStream summary; // summary string
+        int summaryN = -100000; // last value in calibrationTable
+        PString calibrationValuesName("Axis");
+        calibrationValuesName += analogControls[i];
+        calibrationValuesName += "Motion";
+        PStringArray calibrationValues = (config->GetString("Gamepad", calibrationValuesName, "")).ToUpper().Tokenise(";", PFalse);
+        if (calibrationValues.GetSize() == 0) {
+            // push linear sequence
+            for (PINDEX j = 0; j < POTENTIOMETER_SCALE; j++) {
+                // from -100.00% to +100.00% we have POTENTIOMETER_SCALE values
+                int min = ((float)20000/POTENTIOMETER_SCALE)*j;
+                int max = ((float)20000/POTENTIOMETER_SCALE)*(j+1);
+                for (PINDEX k = min; k <= max; k++) { // overwrite last value
+                    PIntArray *table = calibrationTable[i];
+                    table->SetAt(k, j);
+                };
+            };
+        } else {
+            bool redo;
+            do {
+                int previous = 0;
+                int current  = 0;
+                int next     = 0;
+                redo = PFalse;
+                for (PINDEX j = 0; j < POTENTIOMETER_SCALE; j++) {
+                    previous = current;
+                    current  = calibrationValues[j].AsInteger();
+                    next     = calibrationValues[j+1].AsInteger();
+                    if (previous == 20000 && current == 20000) {
+                        break;
+                    };
+                    if (current > next) {
+                        if (next != 0 && next != 10000) {
+                            PTRACE(1, "calibration error for axis " << analogControls[i] << " value: " << calibrationValues[j] << " previous:" << previous << " current: " << current << " next: " << next);
+                            redo = PTrue;
+                            calibrationValues[j] = PString(next);
+                            calibrationValues[j+1] = PString(current);
+                            break;
+                        } else {
+                            break;
+                        };
+                    };
+                    // set range
+                    for (int k = (current+previous)/2; k<=(next+current/2); k++) {
+                        PIntArray *table = calibrationTable[i];
+                        table->SetAt(k, j);
+                    };
+                };
+            } while(redo);
+            // fix head and tail
+            int calibrationMinimum = calibrationTable[i]->GetAt(0)-1 > 0 ? calibrationTable[i]->GetAt(0)-1 : 0;
+            calibrationTable[i]->SetAt(0, calibrationMinimum);
+            int calibrationMaximum = calibrationTable[i]->GetAt(20000)+1 < POTENTIOMETER_SCALE ? calibrationTable[i]->GetAt(20000)+1 : POTENTIOMETER_SCALE-1;
+            calibrationTable[i]->SetAt(20000, calibrationMaximum);
+
+        };
+        for(PINDEX j = 0; j<= 20000; j++) {
+            if (summaryN < calibrationTable[i]->GetAt(j)) {
+                summaryN = calibrationTable[i]->GetAt(j);
+                summary << " [" << j << "]:" << calibrationTable[i]->GetAt(j);
+            };
+        };
+        PTRACE(4, "ControllerThread\tcalibration summary for '"<< analogControls[i] << "'" << summary);
+    };
     Resume();
 }
 
@@ -65,6 +138,8 @@ void ControllerThread::Main() {
     pserial->ClearBreak();
     pserial->SetDTR();
     pserial->SetRTS();
+    
+    // drop junk from serial port
     do {
         if (shutdown.Wait(0)) {
             return;
@@ -72,7 +147,8 @@ void ControllerThread::Main() {
         pserial->Read(buffer, 256); // flush serial data
     } while (pserial->GetLastReadCount());
     memset(buffer, 0, 256);
-    // waiting for heat beat
+
+    // waiting for 3 heat beat
     do {
         if (shutdown.Wait(0)) {
             return;
@@ -87,18 +163,32 @@ void ControllerThread::Main() {
     PTRACE(1, "Arduino initialization done");
     fReady = PTrue;
 
-
-    // loop
+    // reset Arduino
+    pushAction(0xFF, CMD_RESET);
+    pushAction(0xFF, CMD_SETBASE0); // X1
+    pushAction(0xFF, calibrationTable[0]->GetAt(10000));
+    pushAction(0xFF, CMD_SETBASE1); // Y1
+    pushAction(0xFF, calibrationTable[1]->GetAt(10000));
+    pushAction(0xFF, CMD_SETBASE2); // X2
+    pushAction(0xFF, calibrationTable[2]->GetAt(10000));
+    pushAction(0xFF, CMD_SETBASE3); // Y2
+    pushAction(0xFF, calibrationTable[3]->GetAt(10000));
+    pushAction(0xFF, CMD_SETBASE4); // LT
+    pushAction(0xFF, calibrationTable[4]->GetAt(10000));
+    pushAction(0xFF, CMD_SETBASE5); // RT
+    pushAction(0xFF, calibrationTable[5]->GetAt(10000));
+    pushAction(0xFF, CMD_RESET);
+    // main loop
     do {
         bool fNewActions = false;
         BYTE naction;
-        WORD value;
+        PInt32l value;
         /*
          * get x, y, button and other events
          */
         PTRACE(6, "Main\t" << dumpAction("actions before population: "));
         while(popAction(&naction, &value)) {
-            PWORDArray *actionQueue = actionQueuePool[naction];
+            PIntArray *actionQueue = actionQueuePool[naction];
             
             fNewActions = true;
             PTRACE(6, "Main\tadd new value to actionQueuePool[" << (int)naction << "] with queue size " << actionQueue->GetSize());
@@ -144,13 +234,16 @@ void ControllerThread::Stop() {
     shutdown.Signal();
 }
 
-bool ControllerThread::pushAction(BYTE action, WORD value) {
-    BYTE buffer[3] = {0, 0, 0};
-    buffer[0] = action;
-    buffer[1] = (BYTE)(value >> 8);
-    buffer[2] = (BYTE)value;
+bool ControllerThread::pushAction(BYTE action, PInt32l value) {
+    BYTE buffer[5] = {
+        action,
+        (BYTE)(value >> 24),
+        (BYTE)(value >> 16),
+        (BYTE)(value >> 8),
+        (BYTE)value
+    };
     PTRACE(5, "pushAction\twriting buffer " <<
-            psprintf("%02x,(%02x%02xh OR %i OR unsinged %u)", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2], (int16_t)value, (WORD)value));
+            psprintf("%02x,(%02x%02x%02x%02xh OR %i OR unsinged %u)", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2], (BYTE)buffer[3], (BYTE)buffer[4], (int)value, (int)value));
     if (!queue.Write(buffer, sizeof(buffer))) {
         PError << "pushAction\twrite failed" << endl;
         return false;
@@ -158,15 +251,15 @@ bool ControllerThread::pushAction(BYTE action, WORD value) {
     return true;
 }
 
-bool ControllerThread::popAction(BYTE* action, WORD* value) {
-    BYTE buffer[3] = {0, 0, 0};
-    if (!queue.Read(buffer, 3)) {
+bool ControllerThread::popAction(BYTE* action, PInt32l* value) {
+    BYTE buffer[5] = {0, 0, 0, 0, 0};
+    if (!queue.Read(buffer, 5)) {
         return PFalse;
     };
     *action = buffer[0];
-    *value = (((WORD)buffer[1]) << 8) | buffer[2];
+    *value = ((PInt32l)buffer[1] << 24) + ((PInt32l)(buffer[2] & 0xFF) << 16) + ((PInt32l)(buffer[3] & 0xFF) << 8) + ((PInt32l)buffer[4] & 0xFF);
     PTRACE(5, "popAction\treading buffer " <<
-            psprintf("%02x,(%02x%02xh OR %i OR unsinged %u)", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2], (int16_t)*value, (WORD)*value));
+            psprintf("%02x,(%02x%02x%02x%02xh OR %i OR unsinged %u)", (BYTE)buffer[0], (BYTE)buffer[1], (BYTE)buffer[2], (BYTE)buffer[3], (BYTE)(buffer[4]), (int)*value, (int)*value));
     return PTrue;
 }
 
@@ -206,6 +299,8 @@ void ControllerThread::summarizeActions() {
                     actionQueuePool[i]->SetAt(0, actionQueuePool[i]->GetAt(actionSize));
                     actionQueuePool[i]->SetSize(1);
                     break;
+                case 255:
+                    break; // skip summarization of commands controller
                 default:
                     // keep first 3 digital values
                     if (actionSize>3) {
@@ -219,34 +314,55 @@ void ControllerThread::summarizeActions() {
 
 void ControllerThread::processActions() {
     PBYTEArray message(3);
+    //static PTimeInterval[256] = 0;
 
     for(int i = 0; i < 256; i++) {
         int actionSize = actionQueuePool[i]->GetSize();
         if (actionSize>0) {
             BYTE action = i;
-            WORD value  = actionQueuePool[i]->GetAt(0);
-            if (action>0 and action<10) {
+            PInt32l value  = actionQueuePool[i]->GetAt(0);
+            if (action>=0 && action<10) {
                 // process relative motion actions (axis x1,y1,x2 ...)
                 PTRACE(1, "REL AXIS");
-            } else if (action>=10 and action<50) {
+            } else if (action>=10 && action<50) {
+                // buttons at arduino begin from 20
+                action += 10;
                 // process absolute trigger action (buttons A,B,...)
                 if (value!=0) {
                     value = 1;
                 };
-            } else if (action>=50) {
+                PTRACE(5, "processActions\tSend absolute trigger action " << (int)action << " value " << (int)value);
+            } else if (action>=50 && action<60) {
                 // process absolute motion actions in persents (axis x1,y1,x2 ...)
                 // lookup for value in calibration table
+                action -= 50;
                 if (value>10000) {
                     value = 10000;
                 };
                 if (value<-10000) {
                     value = -10000;
                 };
-                value += 10000; // -100,00 -> 0,00 and 100.00 -> 200.00
+                int lookup = value + 10000; // -100,00 -> 0,00 and 100.00 -> 200.00
                 // look at 0 .. 20000
-                //value = calibrationTable[value];
+                value = calibrationTable[action]->GetAt(lookup);
+                PTRACE(5, "processActions\tSend absolute motion action " << (int)action << " offset " << (float)((lookup-10000)/100) << "% value " << (int)value);
+            } else if (action>=100 && action<110) {
+                // process relative motion actions in pixels*100 (axis x1,y1,x2 ...)
+                action -= 100;
+                int lookup = (((float)(100*value)/mouseMaximum))+10000; // -100,00 -> 0,00 and 100.00 -> 200.00
+                if (lookup>20000) {
+                    lookup = 20000;
+                };
+                if (lookup<0) {
+                    lookup = 0;
+                };
+                value = calibrationTable[action]->GetAt(lookup);
+                PTRACE(5, "processActions\tSend relative motion action (1ms) " << (int)action << " offset " << (float)((lookup-10000)/100) << "% value " << (int)value);
+            } else if (action != 255) {
+                // action 255 is controller command (255+1 == 256 == 0) :-)
+                PError << "ControllerThread::processActions() receive unknown action " << (int)action << endl;
             };
-            message[0] = i; // action
+            message[0] = action+1; // action
             message[1] = (BYTE)value; // value
             message[2] = message[0] ^ message[1]; // check summ
 
@@ -267,7 +383,7 @@ void ControllerThread::processActions() {
             actionQueuePool[i]->SetSize(actionSize-1);
         };
     };
-    processReceive(00, PTrue);
+    processReceive(0, PTrue);
 }
 
 // transmit

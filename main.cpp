@@ -1,6 +1,7 @@
 /***************************************************************************
- * Copyright (C) 2010 by Alexey Aksenov, Alexey Fomichev                   *
- * ezh@ezh.msk.ru, axx@fomichi.ru                                          *
+ * Copyright (C) 2010 Alexey Aksenov, Alexx Fomichew                       *
+ * Alexey Aksenov (ezh at ezh.msk.ru) software, firmware                   *
+ * Alexx Fomichew (axx at fomichi.ru) hardware                             *
  *                                                                         *
  * This file is part of ENikiBENiki                                        *
  *                                                                         *
@@ -135,11 +136,7 @@ void ENikiBeNikiProcess::Main()
         return;
     };
 
-    cout << configPath << endl;
-    cout << "-------" << config.HasKey("aaa") << endl;
-    cout << "-------" << config.GetString("aaa") << endl;
-    config.SetString("aaa", "bbb");
-    config.SetString("Gamepad", "aaa", "bbb.xxx,ccc");
+    PTRACE(1, "Load ENikiBENiki settings from " << configPath);
     // serial communication
     if (!InitializeSerial(args)) {
         cout << "failed to initialize the program" << endl;

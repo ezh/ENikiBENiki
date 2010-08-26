@@ -1,6 +1,7 @@
 /***************************************************************************
- * Copyright (C) 2010 by Alexey Aksenov, Alexey Fomichev                   *
- * ezh@ezh.msk.ru, axx@fomichi.ru                                          *
+ * Copyright (C) 2010 Alexey Aksenov, Alexx Fomichew                       *
+ * Alexey Aksenov (ezh at ezh.msk.ru) software, firmware                   *
+ * Alexx Fomichew (axx at fomichi.ru) hardware                             *
  *                                                                         *
  * This file is part of ENikiBENiki                                        *
  *                                                                         *
@@ -31,7 +32,7 @@ enum {
     STATE_QUIT
 };
 
-UIXBoxBinding::UIXBoxBinding(PString _binding, int _code, PString _script, void *(*codeKeyToClass)[32767], ControllerThread *_controller, PConfig *config) : 
+UIXBoxBinding::UIXBoxBinding(PString _binding, int _code, PString _script, UIXBox* _uixbox) : 
     PThread(10000, NoAutoDeleteThread),
     fOnFunctionExists(PFalse),
     fOffFunctionExists(PFalse),
@@ -39,10 +40,10 @@ UIXBoxBinding::UIXBoxBinding(PString _binding, int _code, PString _script, void 
     binding(_binding),
     script(_script) {
     PStringStream threadName;
-    PStringArray analogControls = (config->GetString("Gamepad", "AnalogControl", "")).ToUpper().Tokenise(",", PFalse);
-    PStringArray digitalControls = (config->GetString("Gamepad", "DigitalControl", "")).ToUpper().Tokenise(",", PFalse);
+    PStringArray analogControls = (_uixbox->config->GetString("Gamepad", "AnalogControl", "")).ToUpper().Tokenise(",", PFalse);
+    PStringArray digitalControls = (_uixbox->config->GetString("Gamepad", "DigitalControl", "")).ToUpper().Tokenise(",", PFalse);
 
-    controller = _controller;
+    ui = _uixbox;
     threadName << "'" << _binding << "' binding";
     SetThreadName(threadName);
     PTRACE(2, "Constructing instance for binding '" << _binding << "' with internal control code " << _code);
@@ -180,48 +181,50 @@ void UIXBoxBinding::SomethingEnd(SDL_Event &tevent) {
 int UIXBoxBinding::analogControl(lua_State* L) {
     const char *name = lua_tostring(L, lua_upvalueindex(1));
     int id = lua_tointeger(L, lua_upvalueindex(3));
-    UIXBoxBinding* ui = static_cast<UIXBoxBinding *>(const_cast<void *>(lua_topointer(L, lua_upvalueindex(4))));
-    if (ui->event) {
+    UIXBoxBinding* binding = static_cast<UIXBoxBinding *>(const_cast<void *>(lua_topointer(L, lua_upvalueindex(4))));
+    if (binding->event) {
         int kpersent = luaL_checknumber(L,1);
-        if (ui->event->type == SDL_MOUSEMOTION) {
+        if (binding->event->type == SDL_MOUSEMOTION) {
             int code = lua_tointeger(L, lua_upvalueindex(2));
             int value = 0;
             // get value
             switch (code) {
                 case MOUSE_N0:
-                    value = ui->event->motion.xrel;
+                    value = binding->event->motion.xrel;
                     break;
                 case MOUSE_N1:
-                    value = ui->event->motion.yrel;
+                    value = binding->event->motion.yrel;
                     break;
                 default:
-                    PError << ui->GetThreadName() << " Control" << name << " unknow axis for code " << code << endl;
+                    PError << binding->GetThreadName() << " Control" << name << " unknow axis for code " << code << endl;
                     break;
             };
             // mouse
-            if (kpersent > 1000) {
-                PError << ui->GetThreadName() << " Control" << name << "(persent) argument " << kpersent << " too high. Assign correct maximum value 1000%" << endl;
-                kpersent = 1000;
+            if (value != 0) {
+                if (kpersent > 1000) {
+                    PError << binding->GetThreadName() << " Control" << name << "(persent) argument " << kpersent << " too high. Assign correct maximum value 1000%" << endl;
+                    kpersent = 1000;
+                };
+                if (kpersent < -1000) {
+                    PError << binding->GetThreadName() << " Control" << name << "(persent) argument " << kpersent << " too low. Assign correct minimum value -1000%" << endl;
+                    kpersent = -1000;
+                };
+                value *= kpersent;
+                PTRACE(5, "Control" << name << "\tcall with modifier " << kpersent << "%, shift is " << value << "px*100 (mouse mode)");
+                binding->ui->controller->pushAction(100+id, value); // mouse shift Npx*N%*100
             };
-            if (kpersent < -1000) {
-                PError << ui->GetThreadName() << " Control" << name << "(persent) argument " << kpersent << " too low. Assign correct minimum value -1000%" << endl;
-                kpersent = -1000;
-            };
-            value *= kpersent/10;
-            PTRACE(5, "Control" << name << "\tcall with modifier " << kpersent << "%, shift is " << value << "px (mouse mode)");
-            ui->controller->pushAction(100+id, value); // mouse shift Npx*N%*10
         } else {
             // keyboard
             if (kpersent > 100) {
-                PError << ui->GetThreadName() << " Control" << name << "(persent) argument " << kpersent << " too high. Assign correct maximum value 100%" << endl;
+                PError << binding->GetThreadName() << " Control" << name << "(persent) argument " << kpersent << " too high. Assign correct maximum value 100%" << endl;
                 kpersent = 100;
             };
             if (kpersent < -100) {
-                PError << ui->GetThreadName() << " Control" << name << "(persent) argument " << kpersent << " too low. Assign correct minimum value -100%" << endl;
+                PError << binding->GetThreadName() << " Control" << name << "(persent) argument " << kpersent << " too low. Assign correct minimum value -100%" << endl;
                 kpersent = -100;
             };
             PTRACE(5, "Control" << name << "\tcall with modifier " << kpersent << "% (keyboard mode)");
-            ui->controller->pushAction(50+id, 10000*kpersent/100); // gamepad angle NNN.NN% up to 100%
+            binding->ui->controller->pushAction(50+id, 10000*kpersent/100); // gamepad angle NNN.NN% up to 100%
         };
     } else {
         PTRACE(1, "Control" << name << "\tcall without SDL event");
@@ -232,14 +235,14 @@ int UIXBoxBinding::analogControl(lua_State* L) {
 int UIXBoxBinding::digitalControl(lua_State* L) {
     const char *name = lua_tostring(L, lua_upvalueindex(1));
     int id = lua_tointeger(L, lua_upvalueindex(3));
-    UIXBoxBinding* ui = static_cast<UIXBoxBinding *>(const_cast<void *>(lua_topointer(L, lua_upvalueindex(4))));
-    if (ui->event) {
+    UIXBoxBinding* binding = static_cast<UIXBoxBinding *>(const_cast<void *>(lua_topointer(L, lua_upvalueindex(4))));
+    if (binding->event) {
         int kvalue = luaL_checknumber(L,1);
         if (kvalue != 0 && kvalue != 1) {
             kvalue = 1;
         };
         PTRACE(5, "Control" << name << "\tcall with value " << kvalue);
-        ui->controller->pushAction(id, kvalue);
+        binding->ui->controller->pushAction(10+id, kvalue);
     } else {
         PTRACE(1, "Control" << name << "\tcall without SDL event");
     };

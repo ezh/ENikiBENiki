@@ -1,6 +1,7 @@
 /***************************************************************************
- * Copyright (C) 2010 by Alexey Aksenov, Alexey Fomichev                   *
- * ezh@ezh.msk.ru, axx@fomichi.ru                                          *
+ * Copyright (C) 2010 Alexey Aksenov, Alexx Fomichew                       *
+ * Alexey Aksenov (ezh at ezh.msk.ru) software, firmware                   *
+ * Alexx Fomichew (axx at fomichi.ru) hardware                             *
  *                                                                         *
  * This file is part of ENikiBENiki                                        *
  *                                                                         *
@@ -19,6 +20,7 @@
  *                                                                         *
  ***************************************************************************/
 
+#include "UIXBox.h"
 #include "Controller.h"
 
 #include "SDL.h"
@@ -33,7 +35,7 @@
 class UIXBoxBinding : public PThread {
     PCLASSINFO(UIXBoxBinding, PThread);
     public:
-        UIXBoxBinding(PString _binding, int _code, PString _script, void *(*codeKeyToClass)[32767], ControllerThread *_controller, PConfig *config);
+        UIXBoxBinding(PString _binding, int _code, PString _script, UIXBox* _uixbox);
         virtual ~UIXBoxBinding();
         void Main();
         void Stop();
@@ -43,17 +45,16 @@ class UIXBoxBinding : public PThread {
         // lua script functions
         static int analogControl(lua_State* L);     // mouse action N  0..100.00% (1ms signal) OR keyboard action 50+N 0..100.00 (persistent), where 0 < N < 10
         static int digitalControl(lua_State* L);    // action N 0/1, where 10 <= N < 50
-        // execution context
-        ControllerThread * controller;
-        SDL_Event * event; // last event
+        UIXBox *ui; // binding context
+        SDL_Event *event; // last binding SDL event
         bool fNonStop; // unbreakable fuction, skip End event, Begin event run till the end
         bool fOnFunctionExists; // flag, that indicate presence lua 'on' callback
         bool fOffFunctionExists; // flag, that indicate presence lua 'off' callback
-        PSyncPoint stateSync;
-        PAtomicInteger statePhase;
-        lua_State *L;
-        PString binding;
-        PString script;
+        PSyncPoint stateSync; // signal when something changed
+        PAtomicInteger statePhase; // binding state
+        lua_State *L; // lua state
+        PString binding; // binding name
+        PString script; // binding script
 };
 
 #endif  // _UIXBoxBinding_H_

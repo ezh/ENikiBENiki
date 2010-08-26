@@ -1,6 +1,7 @@
 /***************************************************************************
- * Copyright (C) 2010 by Alexey Aksenov, Alexey Fomichev                   *
- * ezh@ezh.msk.ru, axx@fomichi.ru                                          *
+ * Copyright (C) 2010 Alexey Aksenov, Alexx Fomichew                       *
+ * Alexey Aksenov (ezh at ezh.msk.ru) software, firmware                   *
+ * Alexx Fomichew (axx at fomichi.ru) hardware                             *
  *                                                                         *
  * This file is part of ENikiBENiki                                        *
  *                                                                         *
@@ -32,9 +33,9 @@ class UI {
         virtual void Main() = 0;
         virtual ~UI();
     protected:
-        ControllerThread * controller;
-        Resources * resources;
-        PConfig * config;
+        ControllerThread *controller;
+        Resources *resources;
+        PConfig *config;
 };
 
 #endif  // _UI_H

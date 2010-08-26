@@ -1,6 +1,7 @@
 /***************************************************************************
- * Copyright (C) 2010 by Alexey Aksenov, Alexey Fomichev                   *
- * ezh@ezh.msk.ru, axx@fomichi.ru                                          *
+ * Copyright (C) 2010 Alexey Aksenov, Alexx Fomichew                       *
+ * Alexey Aksenov (ezh at ezh.msk.ru) software, firmware                   *
+ * Alexx Fomichew (axx at fomichi.ru) hardware                             *
  *                                                                         *
  * This file is part of ENikiBENiki                                        *
  *                                                                         *
@@ -44,7 +45,9 @@ void UIConsole::Main() {
     PRegularExpression regex_quit("(exit|quit)", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
     PRegularExpression regex_play("(p|play)", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
     PRegularExpression regex_setabs("(sa|setabs) [[:digit:]]+ [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
-    PRegularExpression regex_setrel("(sr|setrel) [[:digit:]]+ [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
+    PRegularExpression regex_setraw("(sr|setraw) [[:digit:]]+ [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
+    PRegularExpression regex_setcmd("(sc|setcmd) [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
+    PRegularExpression regex_setsoft("(ss|setsoft) [[:digit:]]+ [-[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
     PRegularExpression regex_getabs("(ga|getabs) [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
     PRegularExpression regex_getrel("(gr|getrel) [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
     PRegularExpression regex_unset("(u|unset) [[:digit:]]+", PRegularExpression::Extended|PRegularExpression::IgnoreCase);
@@ -68,7 +71,9 @@ void UIConsole::Main() {
                  << "exit,quit\tterminates the command-line ENikiBENiki session" << endl
                  << "p,play" << endl
                  << "sa,setabs BYTE BYTE" << endl
-                 << "sr,setrel BYTE BYTE" << endl
+                 << "sr,setraw BYTE BYTE" << endl
+                 << "sc,setcmd BYTE" << endl
+                 << "ss,setsoft BYTE BYTE" << endl
                  << "ga,getabs BYTE" << endl
                  << "gr,getrel BYTE" << endl
                  << "u,unset BYTE" << endl
@@ -87,22 +92,28 @@ void UIConsole::Main() {
                 continue;
             };
             commandSetAbs(parts[1].AsUnsigned(), parts[2].AsUnsigned());
-        } else if (userinput.MatchesRegEx(regex_setrel)) {
+        } else if (userinput.MatchesRegEx(regex_setraw)) {
             PStringArray parts = userinput.Tokenise(" ");
             if (parts[1].AsUnsigned()>255 || parts[2].AsUnsigned()>255) {
                 cout << "ERROR: argument(BYTE) out of range, command: " << userinput << endl;
                 continue;
             };
-            commandSetRel(parts[1].AsUnsigned(), parts[2].AsUnsigned());
-        } else if (userinput.MatchesRegEx(regex_setrel)) {
+            commandSetRaw(parts[1].AsUnsigned(), parts[2].AsUnsigned());
+        } else if (userinput.MatchesRegEx(regex_setcmd)) {
             PStringArray parts = userinput.Tokenise(" ");
             if (parts[1].AsUnsigned()>255) {
                 cout << "ERROR: argument(BYTE) out of range, command: " << userinput << endl;
                 continue;
             };
-            BYTE value = commandGetAbs(parts[1].AsUnsigned());
-            cout << value << endl;
-        } else if (userinput.MatchesRegEx(regex_setrel)) {
+            commandSetCmd(parts[1].AsUnsigned());
+        } else if (userinput.MatchesRegEx(regex_setsoft)) {
+            PStringArray parts = userinput.Tokenise(" ");
+            if (parts[1].AsUnsigned()>255 || parts[2].AsInteger() < -10000 || parts[2].AsInteger() > 10000) {
+                cout << "ERROR: argument out of range, command: " << userinput << endl;
+                continue;
+            };
+            commandSetSoft(parts[1].AsUnsigned(), parts[2].AsInteger());
+        } else if (userinput.MatchesRegEx(regex_getrel)) {
             PStringArray parts = userinput.Tokenise(" ");
             if (parts[1].AsUnsigned()>255) {
                 cout << "ERROR: argument(BYTE) out of range, command: " << userinput << endl;
@@ -211,14 +222,23 @@ void UIConsole::commandMouse() {
 };
 
 void UIConsole::commandReset() {
-    controller->pushAction(0, (WORD)1);
+    controller->pushAction(-1, 1);
 };
 
 void UIConsole::commandSetAbs(BYTE action, BYTE value) {
     controller->pushAction(action, value);
 };
 
-void UIConsole::commandSetRel(BYTE action, BYTE value) {
+void UIConsole::commandSetRaw(BYTE action, BYTE value) {
+    controller->pushAction(action-1, value);
+};
+
+void UIConsole::commandSetCmd(BYTE value) {
+    controller->pushAction(-1, value);
+};
+
+void UIConsole::commandSetSoft(BYTE action, int value) {
+    controller->pushAction(action+50, value);
 };
 
 BYTE UIConsole::commandGetAbs(BYTE action) {

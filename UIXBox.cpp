@@ -1,6 +1,7 @@
 /***************************************************************************
- * Copyright (C) 2010 by Alexey Aksenov, Alexey Fomichev                   *
- * ezh@ezh.msk.ru, axx@fomichi.ru                                          *
+ * Copyright (C) 2010 Alexey Aksenov, Alexx Fomichew                       *
+ * Alexey Aksenov (ezh at ezh.msk.ru) software, firmware                   *
+ * Alexx Fomichew (axx at fomichi.ru) hardware                             *
  *                                                                         *
  * This file is part of ENikiBENiki                                        *
  *                                                                         *
@@ -35,10 +36,10 @@ UIXBox::UIXBox(ControllerThread * _controller, Resources * _resources, PConfig *
     quit   = PFalse;
     active = PFalse;
     for(int i = 0; i < 32767; i++) {
-        codeKeyToClass[i] = 0;
+        codeKeyToBinding[i] = 0;
     };
     // controls
-    controlX1 = 0;
+/*    controlX1 = 0;
     controlY1 = 0;
     controlX2 = 0;
     controlY2 = 0;
@@ -58,21 +59,21 @@ UIXBox::UIXBox(ControllerThread * _controller, Resources * _resources, PConfig *
     controlLB = 0;
     controlRB = 0;
     controlLT = PFalse;
-    controlRT = PFalse;
+    controlRT = PFalse;*/
     // set button areas
 }
 
 UIXBox::~UIXBox() {
     // close UIXBoxBindings
     for(int i = 0; i < 32767; i++) {
-        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToClass[i];
-        if (codeKeyToClass[i]) {
+        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[i];
+        if (codeKeyToBinding[i]) {
             if (!pUIXBoxBinding->IsSuspended() && !pUIXBoxBinding->IsTerminated()) {
                 pUIXBoxBinding->Stop();
                 pUIXBoxBinding->WaitForTermination();
             };
             delete pUIXBoxBinding;
-            codeKeyToClass[i] = 0;
+            codeKeyToBinding[i] = 0;
         };
     };
     // Free the loaded image
@@ -92,11 +93,6 @@ bool UIXBox::Initialize() {
     PString backgroundPassiveWaitingName("XBoxUI/passiveWaiting.bmp");
     PString backgroundPassiveReadyName("XBoxUI/passiveReady.bmp");
     PString backgroundActiveDefaultName("XBoxUI/activeDefault.bmp");
-    //PString ledOnName("TestUI/ledOn.bmp");
-    //PString crosshairOnName("TestUI/crosshairOn.bmp");
-    //PString crosshairOffName("TestUI/crosshairOff.bmp");
-    //PString arrowTopName("TestUI/arrow_top.bmp");
-    //PString arrowRightName("TestUI/arrow_right.bmp");
 
     //Set up screen
     screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
@@ -123,41 +119,6 @@ bool UIXBox::Initialize() {
         PError << "an error loading " << backgroundActiveDefaultName << endl;
         return PFalse;
     };
-//    ledOn        = resources->LoadImageOptimized(ledOnName);
-//    crosshairOn  = resources->LoadImageOptimized(crosshairOnName);
-//    crosshairOff = resources->LoadImageOptimized(crosshairOffName);
-//    arrowTop     = resources->LoadImageOptimized(arrowTopName);
-//    arrowRight   = resources->LoadImageOptimized(arrowRightName);
-    // set color keys
-/*    Uint32 colorkey_crosshairOn = SDL_MapRGB(crosshairOn->format, 0xE5, 0xE5, 0xE5); // Map the color key    
-    SDL_SetColorKey(crosshairOn, SDL_SRCCOLORKEY, colorkey_crosshairOn); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
-    Uint32 colorkey_crosshairOff = SDL_MapRGB(crosshairOff->format, 0xE5, 0xE5, 0xE5); // Map the color key    
-    SDL_SetColorKey(crosshairOff, SDL_SRCCOLORKEY, colorkey_crosshairOff); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
-    Uint32 colorkey_arrowTop = SDL_MapRGB(arrowTop->format, 0xE5, 0xE5, 0xE5); // Map the color key    
-    SDL_SetColorKey(arrowTop, SDL_SRCCOLORKEY, colorkey_arrowTop); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent
-    Uint32 colorkey_arrowRight = SDL_MapRGB(arrowRight->format, 0xE5, 0xE5, 0xE5); // Map the color key    
-    SDL_SetColorKey(arrowRight, SDL_SRCCOLORKEY, colorkey_arrowRight); // Set all pixels of color R 0xFF, G 0xFF, B 0xFF to be transparent*/
-    if (0 > TTF_Init()) {
-        PError << "TTF_Init() failed" << endl;
-        TTF_Quit();
-        return PFalse;
-    };
-/*    if (NULL == (font = TTF_OpenFont("Vera.ttf", 20))) {
-        PError << "Font '" << "Vera.ttf" << "'failed" << endl;
-        return PFalse;
-    };*/
-/*    for (int i = 0; i < 256;i++) {
-        PString text(i-128);
-        SDL_Surface* generatedImage = TTF_RenderText_Solid(font, text, textColor);
-        if (generatedImage == NULL) {
-            PError << "error in rendering the text" << endl;
-            return PFalse;
-        };
-        //Create an optimized image
-        digitals[i] = SDL_DisplayFormat(generatedImage);
-        //Free the old surface
-        SDL_FreeSurface(generatedImage);
-    };*/
     // SDL keys
     RegisterKey("backspace", SDLK_BACKSPACE);
     RegisterKey("tab",       SDLK_TAB);
@@ -234,16 +195,16 @@ bool UIXBox::Initialize() {
     RegisterKey("mouse_axis7",  MOUSE_N7);
     RegisterKey("mouse_axis8",  MOUSE_N8);
     RegisterKey("mouse_axis9",  MOUSE_N9);
-    RegisterKey("mouse_button0",MOUSE_N0);
-    RegisterKey("mouse_button1",MOUSE_N1);
-    RegisterKey("mouse_button2",MOUSE_N2);
-    RegisterKey("mouse_button3",MOUSE_N3);
-    RegisterKey("mouse_button4",MOUSE_N4);
-    RegisterKey("mouse_button5",MOUSE_N5);
-    RegisterKey("mouse_button6",MOUSE_N6);
-    RegisterKey("mouse_button7",MOUSE_N7);
-    RegisterKey("mouse_button8",MOUSE_N8);
-    RegisterKey("mouse_button9",MOUSE_N9);
+    RegisterKey("mouse_button0",MOUSE_B0);
+    RegisterKey("mouse_button1",MOUSE_B1);
+    RegisterKey("mouse_button2",MOUSE_B2);
+    RegisterKey("mouse_button3",MOUSE_B3);
+    RegisterKey("mouse_button4",MOUSE_B4);
+    RegisterKey("mouse_button5",MOUSE_B5);
+    RegisterKey("mouse_button6",MOUSE_B6);
+    RegisterKey("mouse_button7",MOUSE_B7);
+    RegisterKey("mouse_button8",MOUSE_B8);
+    RegisterKey("mouse_button9",MOUSE_B9);
     PStringArray keys = config->GetKeys("Bindings");
     if (keys.GetSize() == 0) {
         PError << "binding lost in space... fix it before continue" << endl;
@@ -253,12 +214,11 @@ bool UIXBox::Initialize() {
         PTRACE(1, "Key " << (i + 1) << " of " << keys.GetSize() << " is " << keys[i]);
         if (keyNameToCode.find(keys[i]) != keyNameToCode.end()) {
             BindKeyToClass(keyNameToCode[keys[i]],
-                    new UIXBoxBinding(keys[i], keyNameToCode[keys[i]], config->GetString("Bindings", keys[i], ""), &codeKeyToClass, controller, config));
+                    new UIXBoxBinding(keys[i], keyNameToCode[keys[i]], config->GetString("Bindings", keys[i], ""), this));
         } else {
             PError << "unknown key in section [Bindings]: " << keys[i] << endl;
         };
     };
-
     return PTrue;
 }
 
@@ -300,17 +260,40 @@ void UIXBox::Main() {
 
 void UIXBox::eventMouseUp() {
     if (active) {
-    };
-}
-
-void UIXBox::eventMouseDown() {
-    if (active) {
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[MOUSE_B0];
+            pUIXBoxBinding->SomethingEnd(event);
+        } else if (event.button.button == SDL_BUTTON_RIGHT) {
+            UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[MOUSE_B2];
+            pUIXBoxBinding->SomethingEnd(event);
+        };
     } else {
         if (event.button.button == SDL_BUTTON_LEFT) {
             // If the left mouse button was pressed
             SDL_WM_GrabInput(SDL_GRAB_ON);
             SDL_ShowCursor(SDL_DISABLE);
-            active = 1;
+            active = PTrue;
+            UpdateUIAndControls();
+            return;
+        };
+    };
+}
+
+void UIXBox::eventMouseDown() {
+    if (active) {
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[MOUSE_B0];
+            pUIXBoxBinding->SomethingBegin(event);
+        } else if (event.button.button == SDL_BUTTON_RIGHT) {
+            UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[MOUSE_B2];
+            pUIXBoxBinding->SomethingBegin(event);
+        };
+    } else {
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            // If the left mouse button was pressed
+            SDL_WM_GrabInput(SDL_GRAB_ON);
+            SDL_ShowCursor(SDL_DISABLE);
+            active = PTrue;
             UpdateUIAndControls();
             return;
         };
@@ -319,8 +302,8 @@ void UIXBox::eventMouseDown() {
 
 void UIXBox::eventMouseMotion() {
     if (active) {
-        UIXBoxBinding* pUIXBoxBindingX = (UIXBoxBinding*)codeKeyToClass[MOUSE_N0];
-        UIXBoxBinding* pUIXBoxBindingY = (UIXBoxBinding*)codeKeyToClass[MOUSE_N1];
+        UIXBoxBinding* pUIXBoxBindingX = (UIXBoxBinding*)codeKeyToBinding[MOUSE_N0];
+        UIXBoxBinding* pUIXBoxBindingY = (UIXBoxBinding*)codeKeyToBinding[MOUSE_N1];
         if (pUIXBoxBindingX) {
             pUIXBoxBindingX->SomethingBegin(event);
         };
@@ -332,7 +315,7 @@ void UIXBox::eventMouseMotion() {
 
 void UIXBox::eventKeyDown() {
     if (active) {
-        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToClass[event.key.keysym.sym];
+        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[event.key.keysym.sym];
         if (pUIXBoxBinding) {
             pUIXBoxBinding->SomethingBegin(event);
         };
@@ -351,7 +334,7 @@ void UIXBox::eventKeyDown() {
 
 void UIXBox::eventKeyUp() {
     if (active) {
-        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToClass[event.key.keysym.sym];
+        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[event.key.keysym.sym];
         if (pUIXBoxBinding) {
             pUIXBoxBinding->SomethingEnd(event);
         };
@@ -455,7 +438,7 @@ void UIXBox::RegisterKey(const std::string& name, int code) {
 
 void UIXBox::BindKeyToClass(int code, void* pUIXBoxBinding) {
     PTRACE(4, "Register binding '" << ((UIXBoxBinding*)pUIXBoxBinding)->GetThreadName() << "' code " << code);
-    codeKeyToClass[code] = pUIXBoxBinding;
+    codeKeyToBinding[code] = pUIXBoxBinding;
 }
 
 // End of File ///////////////////////////////////////////////////////////////
