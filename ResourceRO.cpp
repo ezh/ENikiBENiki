@@ -75,20 +75,42 @@ int ResourceRO::RWOps_Close(SDL_RWops* context) {
     return 1;
 }
 
-size_t ResourceRO::readz(void* buffer, size_t objsize, size_t objcount)
+/*size_t ResourceRO::readz(void* buffer, size_t objsize, size_t objcount)
 {
     return (size_t) PHYSFS_read(file, buffer, objsize, objcount);
+} */
+
+void ResourceRO::read(void* buffer, size_t objsize, size_t objcount) {
+    PHYSFS_read(file, buffer, objsize, objcount);
 }
 
-void ResourceRO::read(void* buffer, size_t objsize, size_t objcount)
-{
-    PHYSFS_sint64 objsread = PHYSFS_read(file, buffer, objsize, objcount);
-    //if(objsread != (PHYSFS_sint64) objcount)
-	//throw FileReadException(objsread, objcount, "eof while reading");
+BYTE ResourceRO::read8() {
+    BYTE val;
+    if(PHYSFS_read(file, &val, 1, 1) != 1) {
+        PError << "read error: %s", PHYSFS_getLastError();
+    };
+    return val;
 }
 
-bool ResourceRO::isEOF()
-{
+bool ResourceRO::isEOF() {
     return PHYSFS_eof(file);
 }
 
+bool ResourceRO::readText(PStringArray & textBuffer) {
+    int nString = 0;
+    char c;
+
+    seek(0);
+    if(isEOF()) {
+        PError << "end of file while reading line";
+        return PFalse;
+    };
+    while(!isEOF()) {
+        if ((c = read8()) != '\n') {
+            textBuffer[nString] += c;
+        } else {
+            nString++;
+        };
+    };
+    return PTrue;
+}

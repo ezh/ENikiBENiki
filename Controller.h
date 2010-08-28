@@ -24,6 +24,8 @@
 #include <ptclib/qchannel.h>
 #include <ptlib/serchan.h>
 
+#include "Resources.h"
+
 #ifndef _CONTROLLERTHREAD_H_
 #define _CONTROLLERTHREAD_H_
 
@@ -45,12 +47,15 @@ class ControllerThread : public PThread {
     PCLASSINFO(ControllerThread, PThread);
 
     public:
-        ControllerThread(PSerialChannel * tserial, PConfig *config);
+        ControllerThread(PSerialChannel *_serial, Resources * _resources, PConfig *_config);
         ~ControllerThread();
         virtual void Main(); // main thread loop
         void Stop(); // shutdown routine
         bool pushAction(BYTE action, PInt32l value); // populate queue
         bool isReady();
+        void resetGameTable();
+        void loadGameTableT(PString & name);
+        //void loadGameTableB(PString & name);
 
     private:
         bool popAction(BYTE *action, PInt32l *value); // process queue
@@ -65,6 +70,7 @@ class ControllerThread : public PThread {
          */
         int mouseMaximum;
         PIntArray *calibrationTable[10];
+        PIntArray *gameTable[10];
         /*
          * action queue: BYTE action N, int value
          * AXIS ABSOLUTE (unsigned potentiometer values)
@@ -112,6 +118,9 @@ class ControllerThread : public PThread {
         int timeout;
         /* serial communication channel pointer */
         PSerialChannel * pserial;
+        Resources *resources;
+        PConfig *config;
+        PStringArray analogControls;
 };
 
 #endif  // _CONTROLLERTHREAD_H

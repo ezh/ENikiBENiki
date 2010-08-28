@@ -38,6 +38,7 @@ class Resources {
         ~Resources();
         bool Open(PString & argv0, PString & application);
         bool Close();
+        bool LoadTextFile(PString & fileName, PStringArray & textBuffer);
         SDL_Surface * LoadImage(PString & imageName);
         SDL_Surface * LoadImageOptimized(PString & imageName);
         //int * loadFile(char *fileName, int *fileSize);

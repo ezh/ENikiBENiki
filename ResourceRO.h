@@ -35,35 +35,13 @@ class ResourceRO : public Resource {
         ResourceRO(PHYSFS_file* file);
         bool isEOF();
         void read(void* buffer, size_t objsize, size_t objcount);
-        size_t readz(void* buffer, size_t objsize, size_t objcount);
-
-//        Sint8 read8();
-
-//        Sint16 readSLE16();
-//        Uint16 readULE16();
-//        Sint16 readSBE16();
-//        Uint16 readUBE16();
-
-//        Sint32 readSLE32();
-//        Uint32 readULE32();
-//        Sint32 readSBE32();
-//        Uint32 readUBE32();
-
-//        int64_t readSLE64();
-//        uint64_t readULE64();
-//        int64_t readSBE64();
-//        uint64_t readUBE64();
-
-//        void readLine(std::string& buffer);
-
+        bool readText(PStringArray & textBuffer);
+        BYTE read8();
         // Returns the SDL_RWops structure which can be used in several SDL
         // commands. Note that you have to free this structure with SDL_FreeRWops.
         // (Most SDL commands also have a freesrc parameter in their calls which you
         // can simply set to 1)
         SDL_RWops* GetSDLRWOps();
-
-        /** for internal use only */
-
     private:
         static int RWOps_Read(SDL_RWops* context, void* ptr, int size, int maxnum);
         static int RWOps_Seek(SDL_RWops* context, int offset, int whence);

@@ -26,9 +26,11 @@
 
 #define POTENTIOMETER_SCALE 256
 
-ControllerThread::ControllerThread(PSerialChannel *tserial, PConfig *config) : PThread(10000, NoAutoDeleteThread), queue() {
-    PStringArray analogControls = (config->GetString("Gamepad", "AnalogControl", "")).ToUpper().Tokenise(",", PFalse);
-    pserial = tserial;
+ControllerThread::ControllerThread(PSerialChannel *_serial, Resources * _resources, PConfig *_config) : PThread(10000, NoAutoDeleteThread), queue() {
+    pserial   = _serial;
+    resources = _resources;
+    config    = _config;
+    analogControls = (config->GetString("Gamepad", "AnalogControl", "")).ToUpper().Tokenise(",", PFalse);
 
     PTRACE(2, "Constructing instance for controller");
     for(int i = 0; i < 256; i++) {
@@ -109,6 +111,14 @@ ControllerThread::ControllerThread(PSerialChannel *tserial, PConfig *config) : P
         };
         PTRACE(4, "ControllerThread\tcalibration summary for '"<< analogControls[i] << "'" << summary);
     };
+    // prepare game table
+    for (PINDEX i = 0; i < 10; i++) {
+        gameTable[i] = new PIntArray;
+    };
+    resetGameTable();
+    PString zzz("mw2x.z");
+    loadGameTableT(zzz);
+    // start
     Resume();
 }
 
@@ -334,6 +344,7 @@ void ControllerThread::processActions() {
                 PTRACE(5, "processActions\tSend absolute trigger action " << (int)action << " value " << (int)value);
             } else if (action>=50 && action<60) {
                 // process absolute motion actions in persents (axis x1,y1,x2 ...)
+                int gamevalue;
                 // lookup for value in calibration table
                 action -= 50;
                 if (value>10000) {
@@ -344,10 +355,13 @@ void ControllerThread::processActions() {
                 };
                 int lookup = value + 10000; // -100,00 -> 0,00 and 100.00 -> 200.00
                 // look at 0 .. 20000
-                value = calibrationTable[action]->GetAt(lookup);
+                PTRACE(1, "AAAAAAAAAAAAAA!");
+                gamevalue = gameTable[action]->GetAt(lookup);
+                value = calibrationTable[action]->GetAt(gamevalue);
                 PTRACE(5, "processActions\tSend absolute motion action " << (int)action << " offset " << (float)((lookup-10000)/100) << "% value " << (int)value);
             } else if (action>=100 && action<110) {
                 // process relative motion actions in pixels*100 (axis x1,y1,x2 ...)
+                int gamevalue;
                 action -= 100;
                 int lookup = (((float)(100*value)/mouseMaximum))+10000; // -100,00 -> 0,00 and 100.00 -> 200.00
                 if (lookup>20000) {
@@ -356,7 +370,8 @@ void ControllerThread::processActions() {
                 if (lookup<0) {
                     lookup = 0;
                 };
-                value = calibrationTable[action]->GetAt(lookup);
+                gamevalue = gameTable[action]->GetAt(lookup);
+                value = calibrationTable[action]->GetAt(gamevalue);
                 PTRACE(5, "processActions\tSend relative motion action (1ms) " << (int)action << " offset " << (float)((lookup-10000)/100) << "% value " << (int)value);
             } else if (action != 255) {
                 // action 255 is controller command (255+1 == 256 == 0) :-)
@@ -474,37 +489,70 @@ bool ControllerThread::processReceive(BYTE expect, bool peek) {
     return PFalse;
 }
 
-bool  ControllerThread::isReady() {
+bool ControllerThread::isReady() {
     return fReady;
 }
 
-/*        if (len != 0) {
-            buffer[len] = 0;
-            PTRACE(1, "Read the string \"" << buffer << "\" from the serial port");
-            str += PString(buffer);
-            if (str.Find("\n") != P_MAX_INDEX)
-                found = PTrue;
-        }
-        PINDEX err = serial.GetErrorCode();
-        if ((err != PChannel::NoError) && (err != PChannel::Timeout)) {
-            PTRACE(1, "get data from serial port, failed, error is " << serial.GetErrorText());
-            cout << "get data from serial port, failed, error is " << serial.GetErrorText() << endl;
-        }
-        if (found) {
-            str.Replace("\n", "");
-            PTRACE(1, "Read the message \"" << str << "\"");
-            cout << "have read the message \"" << str << "\" from the serial port" << endl;
-            str = "";
-            found = PFalse;
-        }*/
+void ControllerThread::resetGameTable() {
+    for(PINDEX i = 0; i < 10; i++) {
+        for(PINDEX j = 0; j<= 20000; j++) {
+            gameTable[i]->SetAt(j, j);
+        };
+    };
+}
 
-/*                } else {
-            PStringStream streamValues;
-
-            retransmit++;
-            for(int i=0; i<len; i++) {
-                streamValues << psprintf("%02x/", (BYTE)buffer[i]) << (BYTE)buffer[i] << " ";
+void ControllerThread::loadGameTableT(PString & name) {
+    PStringArray calibrationVector;
+    PTRACE(1, "loading game profile '" << name << "'");
+    resources->LoadTextFile(name, calibrationVector);
+    for (PINDEX i = 0; i < analogControls.GetSize(); i++) {
+        PString calibrationValuesName("Axis");
+        calibrationValuesName += analogControls[i];
+        calibrationValuesName += " ";
+        bool tryToFindCommon = PTrue;
+        PTRACE(4, "search calibration vector for " << calibrationValuesName);
+        // try to find specific vector
+        for (PINDEX j = 0; j < calibrationVector.GetSize(); j++) {
+            if (strncmp(calibrationVector[j], calibrationValuesName, calibrationValuesName.GetSize()-1) == 0) {
+                tryToFindCommon = PFalse;
+                // ok, let's parse
+                PStringArray calibrationValues = calibrationVector[j].Tokenise(" ", PFalse);
+                if (calibrationValues.GetSize() == 2) {
+                    PTRACE(1, "apply default calibration vector to " << calibrationValuesName);
+                    for (PINDEX k = 0; k <= 20000; k++) { // skip title
+                        gameTable[i]->SetAt(k, k);
+                    };
+                } else {
+                    PTRACE(1, "apply specific calibration vector (length " << calibrationValues.GetSize() << ") to " << calibrationValuesName);
+                    for (PINDEX k = 1; k < calibrationValues.GetSize(); k++) { // skip title
+                        gameTable[i]->SetAt(k, calibrationValues[k].AsInteger());
+                    };
+                    PTRACE(1, gameTable[i]->GetAt(10000));
+                    gameTable[i]->SetAt(0, 0);
+                    gameTable[i]->SetAt(20000, 20000);
+                };
+                break;
             };
-            PTRACE(1, "retransmit(" << retransmit << "), receive broken reply, message:" << streamValues);*/
+        };
+        // specific vector not found, try to find common vector
+        if (tryToFindCommon) {
+            for (PINDEX j = 0; j < calibrationVector.GetSize(); j++) {
+                if (strncmp(calibrationVector[j], "common ", 7) == 0) {
+                    // ok, let's parse
+                    PStringArray calibrationValues = calibrationVector[j].Tokenise(" ", PFalse);
+                    PTRACE(1, "apply common calibration vector (length " << calibrationValues.GetSize() << ") to " << calibrationValuesName);
+                    for (PINDEX k = 1; k < calibrationValues.GetSize(); k++) { // skip title
+                        gameTable[i]->SetAt(k, calibrationValues[k].AsInteger());
+                    };
+                    PTRACE(1, gameTable[i]->GetAt(10000));
+                    gameTable[i]->SetAt(0, 0);
+                    gameTable[i]->SetAt(20000, 20000);
+                    break;
+                };
+            };
+        };
+    };
+}
+
 // End of File ///////////////////////////////////////////////////////////////
 // vim:ft=c:ts=4:sw=4

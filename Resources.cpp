@@ -279,6 +279,15 @@ SDL_Surface * Resources::LoadImageOptimized(PString & imageName) {
     return optimizedSurface;
 }
 
+bool Resources::LoadTextFile(PString & fileName, PStringArray & textBuffer) {
+    PTRACE(4, "load textfile '" << fileName << "' from resources");
+    bool result;
+    ResourceRO * textFile = RetrieveRead(fileName);
+    result = textFile->readText(textBuffer);
+    delete textFile;
+    return result;
+}
+
 //int * ResFile::loadFile(char *fileName, int *fileSize) {
 /*    PHYSFS_file *compFile;
     PHYSFS_sint64 fileLength;

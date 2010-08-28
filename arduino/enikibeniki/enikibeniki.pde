@@ -193,6 +193,7 @@ void loop() {
                             actionWant[i] = 0;
                         };
                         if (hconfig == HW_LAYOUT_A) {
+                            dprintf("reset HW_LAYOUT_A");
                             LAYOUT_A(0, 0, 0, baselevel[4], 0, baselevel[0]); // reset buttons, LT and X1
                             LAYOUT_A(0xFFFF, 0xFFFF, 1, baselevel[5], 1, baselevel[1]); // reset RT and Y1
                             LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0xFF, 2, baselevel[2]); // reset X2

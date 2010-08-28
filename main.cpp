@@ -144,9 +144,9 @@ void ENikiBeNikiProcess::Main()
         return;
     };
     cout << "timer resolution reported as " << PTimer::Resolution() << "ms" << endl;
-    controller = new ControllerThread(pserial, &config);
     resources = new Resources(resourceExt);
     if (resources->Open(appExec, appName)) {
+        controller = new ControllerThread(pserial, resources, &config);
         switch(mapUIStringValues[(const char *)args.GetOptionString('u')]) {
             case uiXBox:
                 ui = new UIXBox(controller, resources, &config);
@@ -166,12 +166,12 @@ void ENikiBeNikiProcess::Main()
         };
         // Clean up
         delete ui;
+        controller->Stop();
+        controller->WaitForTermination();
+        delete controller;
         resources->Close();
     };
     delete resources;
-    controller->Stop();
-    controller->WaitForTermination();
-    delete controller;
     pserial->Close();
     cout << "main thread terminated successful" << endl;
 }
