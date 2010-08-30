@@ -169,53 +169,101 @@ void UIConsole::commandPlay() {
         }*/
 };
 
+void UIConsole::FlushSDLEvents(void) {
+	SDL_Event event;
+
+	while(SDL_PollEvent(&event)) {
+    }
+}
+
 void UIConsole::commandMouse() {
+    PTime tBegin;
+    PTime tLast;
     SDL_Surface * screen;
-    int x    = 0;
-    int y    = 0;
-    int maximum = 0;
-    int steps = 1;
+    int maximumShift = 0;
+    int maximumDelay = 0;
+    PTime tBase; // base time for tStep multiplier
+    PTimeInterval tStep(1); // 1ms, loop step (1Hz); up to 14 bytes per step for 115200 serial line
+    PTime tNow; // current time
+    PTime tThen; // expected execution time
+    unsigned short i = 0; // multiplier for tStep
+    /* shutdown trigger */
+    PSyncPoint shutdown;
+    int x, y;
+    int counter = 0;
 
     cout << "enter mouse colibration mode" << endl;
     //Start SDL
     SDL_Init(SDL_INIT_EVERYTHING);
     screen = SDL_SetVideoMode(640, 240, 32, SDL_SWSURFACE);
     SDL_WM_GrabInput(SDL_GRAB_ON);
-    SDL_PumpEvents();
+    SDL_ShowCursor(SDL_DISABLE);
+    // skip standard events
+    SDL_EventState(SDL_ACTIVEEVENT, SDL_IGNORE);
+    SDL_EventState(SDL_KEYDOWN, SDL_IGNORE);
+    SDL_EventState(SDL_KEYUP, SDL_IGNORE);
+    SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
+    SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_IGNORE);
+    SDL_EventState(SDL_MOUSEBUTTONUP, SDL_IGNORE);
+    SDL_EventState(SDL_JOYAXISMOTION, SDL_IGNORE);
+    SDL_EventState(SDL_JOYBALLMOTION, SDL_IGNORE);
+    SDL_EventState(SDL_JOYHATMOTION, SDL_IGNORE);
+    SDL_EventState(SDL_JOYBUTTONDOWN, SDL_IGNORE);
+    SDL_EventState(SDL_JOYBUTTONUP, SDL_IGNORE);
+    // flush junk
+    FlushSDLEvents();
+    SDL_GetMouseState(&x, &y);
     SDL_GetRelativeMouseState(&x, &y);
-    for(int i = 0; i < 5000; i++) {
-        if (i > 1) {
-            SDL_PumpEvents();
-            SDL_GetRelativeMouseState(&x, &y);
-            if (x == 0 && y == 0) {
-                // frequency hole
-                steps++;
-            } else if (steps != 1) { // steps == 1 may be buffered value, but we need real
-                PTRACE(1, "X:" << x << " Y:" << y << " steps:" << steps);
-                if (x < 0) {
-                    x *= -1;
-                };
-                x = x/steps;
-                if (x > maximum) {
-                    PTRACE(1, "MAXIMUM X:" << x);
-                    maximum = x;
-                };
-                y = y/steps;
-                if (y < 0) {
-                    y *= -1;
-                };
-                if (y > maximum) {
-                    PTRACE(1, "MAXIMUM Y:" << y);
-                    maximum = y;
-                };
-                steps = 1;
+    tNow = PTime();
+    tLast = tNow;
+    do {
+        counter++;
+        tNow = PTime();
+        FlushSDLEvents();
+        SDL_GetRelativeMouseState(&x, &y);
+        if (x != 0 || y != 0) {
+            x = x > 0 ? x / counter : -x / counter;
+            y = y > 0 ? y / counter : -y / counter;
+            if (x > maximumShift) {
+                PTRACE(1, "MAXIMUM X:" << x << " COUNTER: " << counter);
+                maximumShift = x;
             };
-            PThread::Sleep(1);
+            if (y > maximumShift) {
+                PTRACE(1, "MAXIMUM Y:" << y << " COUNTER: " << counter);
+                maximumShift = y;
+            };
+            if (counter > maximumDelay && counter < 100) {
+                maximumDelay = counter;
+            }
+            counter = 0;
         };
-    };
-    cout << "maximum offset at ~1kHz: " << maximum << endl;
+        if ((tNow - tBegin).GetSeconds() > 10) {
+            shutdown.Signal();
+        };
+        /*
+         * wait next tStep ms
+         */
+        i++;
+        tThen = tBase + tStep * i;
+        tNow = PTime();
+        // reset multiplier
+        if (i >= 255) {
+            i = 0;
+            tBase = tThen;
+        };
+        // step was too long (tThen less than tNow)
+        if (tNow.Compare(tThen) != -1) {
+            PTRACE(2, "commandMouse\tnow: " << tNow.AsString("h:m:s.uuuu") << " then: " << tThen.AsString("h:m:s.uuuu") << " i: " << (int)i << " diff: " << (tNow - tThen).GetMilliSeconds() << "ms");
+            i += (tNow - tThen).GetMilliSeconds() / tStep.GetMilliSeconds() + 1; // number of steps + 1 step
+            tThen = tBase + tStep * i;
+            PTRACE(2, "commandMouse\tcorrected then: " << tThen.AsString("h:m:s.uuuu") << " i: " << (int)i);
+        };
+        PTRACE(3, "commandMouse\tstep " << (tThen - tNow).GetMilliSeconds() << "ms"); 
+    } while(!shutdown.Wait((tThen - tNow).GetMilliSeconds()));
+   // SDL_ShowCursor(SDL_ENABLE);
     SDL_WM_GrabInput(SDL_GRAB_OFF);
     SDL_FreeSurface(screen);
+    cout << "maximum offset at ~1kHz: " << maximumShift << " with delay: " << maximumDelay << endl;
     // Quit SDL
     SDL_Quit();
     cout << "exit mouse colibration mode" << endl;

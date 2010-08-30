@@ -65,11 +65,11 @@ class UIXBox : public UI {
         void Main();
     private:
         void UpdateUIAndControls();
-        void eventMouseUp();
-        void eventMouseDown();
+        void eventMouseUp(int code);
+        void eventMouseDown(int code);
         void eventMouseMotion();
-        void eventKeyDown();
-        void eventKeyUp();
+        void eventKeyDown(int code);
+        void eventKeyUp(int code);
         void eventQuit();
         void apply_surface(int x,int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip);
         void RegisterKey(const std::string& name, int code);
@@ -86,8 +86,7 @@ class UIXBox : public UI {
         void *codeKeyToBinding[32767];
         bool quit; // make sure the program waits for a quit
         bool active; // passive/active mode
-        //
-        PSyncPoint sync;
+        PSyncPoint shutdown;
 };
 
 #endif  // _UIXBox_H_

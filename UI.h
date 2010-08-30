@@ -20,6 +20,8 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <ptlib.h>
+
 #include "Controller.h"
 #include "Resources.h"
 

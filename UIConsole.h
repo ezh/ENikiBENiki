@@ -20,6 +20,10 @@
  *                                                                         *
  ***************************************************************************/
 
+#include <ptlib.h>
+#include <ptclib/qchannel.h>
+#include <ptlib/serchan.h>
+
 #include "SDL.h"
 #include "SDL_ttf.h" 
 
@@ -47,6 +51,7 @@ class UIConsole : public UI {
         void commandUnSet(BYTE action);
         void commandMouse();
         void commandReset();
+        void FlushSDLEvents();
         //Make sure the program waits for a quit
         bool quit;
 };

@@ -22,7 +22,7 @@
 
 #include "TimerOne.h" // using Timer1 library from http://www.arduino.cc/playground/Code/Timer1
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define dprintf(...) _dprintf(__VA_ARGS__)
@@ -56,8 +56,8 @@
 #define HW_LAYOUT_A 1 // two MAX395 and one AD8402 at SLAVESELECT_A + AD8402 at SLAVESELECT_B for XBOX360
 #define HW_LAYOUT_B 2 // who knows?
 byte baselevel[8] = {128, 128, 128, 128, 128, 128, 128, 128}; // values for analog axis
-byte actionActive[ACTIONS]; // current state
-byte actionWant[ACTIONS*2]; // requested state
+word actionActive[ACTIONS*2]; // current state [counter, value]
+word actionWant[ACTIONS*2]; // requested state [counter, value]
 byte buffer[3]; // global packet storage (1st BYTE: N_action, 2nd BYTE: value, 3rd BYTE: check summ)
 byte bufferN = 0; // received bytes counter
 byte zeroN = 0; // received zeros counter if we got 000 at serial port than reset communication
@@ -93,7 +93,7 @@ void setup() {
     /*
      * clear buffers
      */
-    for (int i=0; i<ACTIONS; i++) {
+    for (int i=0; i<ACTIONS*2; i++) {
         actionActive[i] = 0;
         actionWant[i] = 0;
     };
@@ -132,14 +132,14 @@ void beat() {
             /*
              * FIRE!
              */
-            if (actionActive[i] != actionWant[i*2+1]) {
-                // set action in buffer
-                actionActive[i] = actionWant[i*2+1];
+            if (actionActive[i*2+1] != actionWant[i*2+1]) {
                 dprintf("beat\tget actionWant %u value %u:%u", i, actionWant[i*2], actionWant[i*2+1]);
                 fire(i);
             } else {
                 dprintf("beat\tskip actionWant %u value %u:%u", i, actionWant[i*2], actionWant[i*2+1]);
             };
+        } else if (i >= 10 && i < 20 && actionActive[i*2] > 0) { // 1 MS actions
+            fire(i);
         };
         // reset state in actionWant
         actionWant[i*2] = 0;
@@ -188,7 +188,7 @@ void loop() {
                     if (buffer[1] == CMD_RESET) {
                         // reset
                         dprintf("reset");
-                        for (int i=0; i<ACTIONS; i++) {
+                        for (int i=0; i<ACTIONS*2; i++) {
                             actionActive[i] = 0;
                             actionWant[i] = 0;
                         };
@@ -228,43 +228,76 @@ void LAYOUT_A(word maxVal1 = 0xFFFF, word maxVal2 = 0xFFFF, byte ad84Addr1 = 0xF
 
 void fire(byte n) {
     if (hconfig == HW_LAYOUT_A) {
-        if (n >= 0 and n < 10) {
-            // AXIS ABSOLUTE PERMANENT
+        if (n >= 0 && n < 10) {
+            // AXIS permanent
+            actionActive[n*2+1] = actionWant[n*2+1];
             if (n == 0) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 0, actionActive[n]);
+                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 0, actionActive[n*2+1]);
             } else if (n == 1) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 1, actionActive[n]);
+                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 1, actionActive[n*2+1]);
             } else if (n == 2) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 2, actionActive[n]);
+                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 2, actionActive[n*2+1]);
             } else if (n == 3) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 3, actionActive[n]);
+                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 3, actionActive[n*2+1]);
             } else if (n == 4) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0, actionActive[n]); // analog button
+                LAYOUT_A(0xFFFF, 0xFFFF, 0, actionActive[n*2+1]); // analog button
             } else if (n == 5) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 1, actionActive[n]); // analog button
+                LAYOUT_A(0xFFFF, 0xFFFF, 1, actionActive[n*2+1]); // analog button
             };
-        } else if (n >= 10 and n < 20) {
-            // AXIS ABSOLUTE 1MS
-            if (n == 0) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 0, actionActive[n]);
-            } else if (n == 1) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 1, actionActive[n]);
-            } else if (n == 2) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 2, actionActive[n]);
-            } else if (n == 3) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 3, actionActive[n]);
-            } else if (n == 4) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 0, actionActive[n]); // analog button
-            } else if (n == 5) {
-                LAYOUT_A(0xFFFF, 0xFFFF, 1, actionActive[n]); // analog button
+        } else if (n >= 10 && n < 20) {
+            // AXIS N ms
+            if (actionWant[n*2] > 0) {
+                // update to requested value
+                actionActive[n*2] = 10;
+                actionActive[n*2+1] = actionWant[n*2+1];
+                dprintf("beat\tset actionActive %u %u:%u", n, actionActive[n*2], actionActive[n*2+1]);
+                if (n == 10) {
+                    LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 0, actionActive[n*2+1]);
+                } else if (n == 11) {
+                    LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 1, actionActive[n*2+1]);
+                } else if (n == 12) {
+                    LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 2, actionActive[n*2+1]);
+                } else if (n == 13) {
+                    LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 3, actionActive[n*2+1]);
+                } else if (n == 14) {
+                    LAYOUT_A(0xFFFF, 0xFFFF, 0, actionActive[n*2+1]); // analog button
+                } else if (n == 15) {
+                    LAYOUT_A(0xFFFF, 0xFFFF, 1, actionActive[n*2+1]); // analog button
+                };
+            } else if (actionActive[n*2]>0) {
+                actionActive[n*2]--;
+                if (actionActive[n*2] == 0) {
+                    // reset to base
+                    dprintf("beat\treset actionActive %u %u:%u", n, actionActive[n*2], actionActive[n*2+1]);
+                    if (n == 10) {
+                        actionActive[n*2+1] = baselevel[0];
+                        LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 0, baselevel[0]);
+                    } else if (n == 11) {
+                        actionActive[n*2+1] = baselevel[1];
+                        LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 1, baselevel[1]);
+                    } else if (n == 12) {
+                        actionActive[n*2+1] = baselevel[2];
+                        LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 2, baselevel[2]);
+                    } else if (n == 13) {
+                        actionActive[n*2+1] = baselevel[3];
+                        LAYOUT_A(0xFFFF, 0xFFFF, 0xFF, 0, 3, baselevel[3]);
+                    } else if (n == 14) {
+                        actionActive[n*2+1] = baselevel[4];
+                        LAYOUT_A(0xFFFF, 0xFFFF, 0, baselevel[4]); // analog button
+                    } else if (n == 15) {
+                        actionActive[n*2+1] = baselevel[5];
+                        LAYOUT_A(0xFFFF, 0xFFFF, 1, baselevel[5]); // analog button
+                    };
+                };
             };
-        } else if (n >= 20 and n < ACTIONS) {
+        } else if (n >= 20 && n < ACTIONS) {
             // BUTTONS
-            if (n >= 20 and n < 28) {
+            actionActive[n*2+1] = actionWant[n*2+1];
+            if (n >= 20 && n < 28) {
                 word current = 0;
                 bitSet(current, n-20); // invert bit, TODO: check to skip
                 LAYOUT_A((current+0xFF), 0xFFFF);
-            } else if (n >= 28 and n < 38) {
+            } else if (n >= 28 && n < 38) {
                 word current = 0;
                 bitSet(current, n-28); // invert bit, TODO: check to skip
                 LAYOUT_A(0xFFFF, (current+0xFF));

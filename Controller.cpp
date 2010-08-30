@@ -42,7 +42,8 @@ ControllerThread::ControllerThread(PSerialChannel *_serial, Resources * _resourc
     timeout = 100;
     retryLimit = 5;
     fReady = PFalse;
-    mouseMaximum = config->GetInteger("Mouse", "maximumOffsetPerMillisecond", 30);
+    maximumOffset = config->GetInteger("Events", "maximumOffset", 200);
+    maximumDelay = config->GetInteger("Events", "maximumOffset", 10);
     for (PINDEX i = 0; i < 10; i++) {
         calibrationTable[i] = new PIntArray;
     };
@@ -148,7 +149,7 @@ void ControllerThread::Main() {
     pserial->ClearBreak();
     pserial->SetDTR();
     pserial->SetRTS();
-    
+
     // drop junk from serial port
     do {
         if (shutdown.Wait(0)) {
@@ -199,7 +200,7 @@ void ControllerThread::Main() {
         PTRACE(6, "Main\t" << dumpAction("actions before population: "));
         while(popAction(&naction, &value)) {
             PIntArray *actionQueue = actionQueuePool[naction];
-            
+
             fNewActions = true;
             PTRACE(6, "Main\tadd new value to actionQueuePool[" << (int)naction << "] with queue size " << actionQueue->GetSize());
             actionQueue->SetAt(actionQueue->GetSize(), value);
@@ -217,7 +218,7 @@ void ControllerThread::Main() {
          */
         processActions();
         /*
-         * wait next 10ms
+         * wait next tStep ms
          */
         i++;
         tThen = tBase + tStep * i;
@@ -347,6 +348,26 @@ void ControllerThread::processActions() {
                 int gamevalue;
                 // lookup for value in calibration table
                 action -= 50;
+                PTRACE(2, "REQUEST1 action: " << (int)action << " VALUE " << (int)value);
+                if (value>10000) {
+                    value = 10000;
+                };
+                if (value<-10000) {
+                    value = -10000;
+                };
+                int lookup = value + 10000; // -100,00 -> 0,00 and 100.00 -> 200.00
+                PTRACE(2, "REQUEST2 action: " << (int)action << " VALUE " << (int)value);
+                // look at 0 .. 20000
+                gamevalue = gameTable[action]->GetAt(lookup);
+                PTRACE(2, "REQUEST3 action: " << (int)action << " VALUE " << (int)gamevalue);
+                value = calibrationTable[action]->GetAt(gamevalue);
+                PTRACE(2, "REQUEST4! action: " << (int)action << " VALUE " << (int)value);
+                PTRACE(2, "processActions\tSend absolute motion action " << (int)action << " offset " << (float)((lookup-10000)/100) << "% value " << (int)value);
+            } else if (action>=60 && action<70) {
+                // process absolute motion actions 1ms in persents (axis x1,y1,x2 ...)
+                int gamevalue;
+                // lookup for value in calibration table
+                action -= 60;
                 if (value>10000) {
                     value = 10000;
                 };
@@ -355,15 +376,15 @@ void ControllerThread::processActions() {
                 };
                 int lookup = value + 10000; // -100,00 -> 0,00 and 100.00 -> 200.00
                 // look at 0 .. 20000
-                PTRACE(1, "AAAAAAAAAAAAAA!");
                 gamevalue = gameTable[action]->GetAt(lookup);
                 value = calibrationTable[action]->GetAt(gamevalue);
-                PTRACE(5, "processActions\tSend absolute motion action " << (int)action << " offset " << (float)((lookup-10000)/100) << "% value " << (int)value);
+                action += 10;
+                PTRACE(5, "processActions\tSend absolute N ms motion action " << (int)action << " offset " << (float)((lookup-10000)/100) << "% value " << (int)value);
             } else if (action>=100 && action<110) {
                 // process relative motion actions in pixels*100 (axis x1,y1,x2 ...)
                 int gamevalue;
                 action -= 100;
-                int lookup = (((float)(100*value)/mouseMaximum))+10000; // -100,00 -> 0,00 and 100.00 -> 200.00
+                int lookup = (((float)(100*value)/maximumOffset))+10000; // -100,00 -> 0,00 and 100.00 -> 200.00
                 if (lookup>20000) {
                     lookup = 20000;
                 };
@@ -372,13 +393,14 @@ void ControllerThread::processActions() {
                 };
                 gamevalue = gameTable[action]->GetAt(lookup);
                 value = calibrationTable[action]->GetAt(gamevalue);
+                action += 10;
                 PTRACE(5, "processActions\tSend relative motion action (1ms) " << (int)action << " offset " << (float)((lookup-10000)/100) << "% value " << (int)value);
             } else if (action != 255) {
                 // action 255 is controller command (255+1 == 256 == 0) :-)
                 PError << "ControllerThread::processActions() receive unknown action " << (int)action << endl;
             };
-            message[0] = action+1; // action
-            message[1] = (BYTE)value; // value
+            message[0] = action+1;
+            message[1] = (BYTE)value;
             message[2] = message[0] ^ message[1]; // check summ
 
             // transmit information to controller

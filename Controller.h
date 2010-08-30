@@ -68,7 +68,8 @@ class ControllerThread : public PThread {
         /*
          * settings
          */
-        int mouseMaximum;
+        int maximumOffset;
+        int maximumDelay;
         PIntArray *calibrationTable[10];
         PIntArray *gameTable[10];
         /*

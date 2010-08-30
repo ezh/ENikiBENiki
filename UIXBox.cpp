@@ -38,29 +38,6 @@ UIXBox::UIXBox(ControllerThread * _controller, Resources * _resources, PConfig *
     for(int i = 0; i < 32767; i++) {
         codeKeyToBinding[i] = 0;
     };
-    // controls
-/*    controlX1 = 0;
-    controlY1 = 0;
-    controlX2 = 0;
-    controlY2 = 0;
-    controlDU = PFalse;
-    controlDD = PFalse;
-    controlDL = PFalse;
-    controlDR = PFalse;
-    controlBack = PFalse;
-    controlGuide = PFalse;
-    controlStart = PFalse;
-    controlTL = PFalse;
-    controlTR = PFalse;
-    controlA = PFalse;
-    controlB = PFalse;
-    controlX = PFalse;
-    controlY = PFalse;
-    controlLB = 0;
-    controlRB = 0;
-    controlLT = PFalse;
-    controlRT = PFalse;*/
-    // set button areas
 }
 
 UIXBox::~UIXBox() {
@@ -96,6 +73,17 @@ bool UIXBox::Initialize() {
 
     //Set up screen
     screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
+    SDL_EventState(SDL_ACTIVEEVENT, SDL_IGNORE);
+    SDL_EventState(SDL_KEYDOWN, SDL_IGNORE);
+    SDL_EventState(SDL_KEYUP, SDL_IGNORE);
+    SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
+    SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_IGNORE);
+    SDL_EventState(SDL_MOUSEBUTTONUP, SDL_IGNORE);
+    SDL_EventState(SDL_JOYAXISMOTION, SDL_IGNORE);
+    SDL_EventState(SDL_JOYBALLMOTION, SDL_IGNORE);
+    SDL_EventState(SDL_JOYHATMOTION, SDL_IGNORE);
+    SDL_EventState(SDL_JOYBUTTONDOWN, SDL_IGNORE);
+    SDL_EventState(SDL_JOYBUTTONUP, SDL_IGNORE);
     //If there was an error in setting up the screen
     if( screen == NULL ) {
         PError << "an error in setting up the screen" << endl;
@@ -223,52 +211,197 @@ bool UIXBox::Initialize() {
 }
 
 void UIXBox::Main() {
+    PTime tBase; // base time for tStep multiplier
+    PTimeInterval tStep(1); // 1ms, loop step (1Hz); up to 14 bytes per step for 115200 serial line
+    PTime tNow; // current time
+    PTime tThen; // expected execution time
+    unsigned short m = 0; // multiplier for tStep
+    BYTE *keystate = SDL_GetKeyState(NULL);
+    PIntArray bindingsKeyCode; // array of codes for key bindings
+    PIntArray bindingsKeyState; // state of buttons
+    PIntArray bindingsMouseCode; // array of codes for mouse button bindings
+    PIntArray bindingsMouseState; // state of mouse button bindings
+    unsigned long frame = 0;
+    // mouse
+    int x        = 0;
+    int y        = 0;
+    int old_x    = 0; // result that send to controller
+    int old_y    = 0; // result that send to controller
+    double dx    = 0; // middle calculation
+    double dy    = 0; // middle calculation
+    double old_dx = 0;
+    double old_dy = 0;
+    int xAccumulated = 0;
+    int yAccumulated = 0;
+    bool filter = PTrue;
+
+    // build binding list for keyboard
+    for(int i = 0; i < MOUSE_N0; i++) { // only keyboard
+        if(codeKeyToBinding[i]) {
+            bindingsKeyCode.SetAt(bindingsKeyCode.GetSize(), i);
+            bindingsKeyState.SetAt(bindingsKeyState.GetSize(), 0);
+        };
+    };
+    // build binding list for mouse
+    for(int i = MOUSE_B0; i <= MOUSE_B9; i++) { // only mouse
+        if(codeKeyToBinding[i]) {
+            bindingsMouseCode.SetAt(bindingsMouseCode.GetSize(), i);
+            bindingsMouseState.SetAt(bindingsMouseState.GetSize(), 0);
+        };
+    };
+
     apply_surface(0, 0, backgroundPassiveWaiting, screen, NULL);
     if (SDL_Flip(screen) == -1) { // update the screen
         return;
     };
+
     // wait for controller
     while (!controller->isReady()) {
         PThread::Sleep(100);
     };
+
+    // flush junk
+	while(SDL_PollEvent(&event)) {};
+    SDL_GetMouseState(&x, &y);
+    SDL_GetRelativeMouseState(&x, &y);
+    // ready
     UpdateUIAndControls();
-    while (quit == false) {
-        if (SDL_WaitEvent(&event) == 1) {
-            // Check for other mouse motion events in the queue.
-            SDL_Event eventFuture;
-            int num = SDL_PeepEvents( &eventFuture, 1, SDL_PEEKEVENT, SDL_ALLEVENTS );
-            // If this is the same state, ignore this one
-            if (!(num > 0 && eventFuture.type == SDL_MOUSEMOTION &&
-                        eventFuture.motion.state == event.motion.state )) {
-                if (event.type == SDL_MOUSEBUTTONDOWN) {
-                    eventMouseDown();
-                } else if (event.type == SDL_MOUSEBUTTONUP) {
-                    eventMouseUp();
-                } else if (event.type == SDL_MOUSEMOTION) {
-                    eventMouseMotion();
-                } else if (event.type == SDL_KEYDOWN) {
-                    eventKeyDown();
-                } else if (event.type == SDL_KEYUP) {
-                    eventKeyUp();
-                } else if (event.type == SDL_QUIT) {
-                    eventQuit();
-                };
+    do {
+        frame++;
+	    while(SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                eventQuit();
             };
         };
-    };
+        // check ESCAPE
+        if (keystate[SDLK_ESCAPE]) {
+            if (active) {
+                active = PFalse;
+                SDL_ShowCursor(SDL_ENABLE);
+                SDL_WM_GrabInput(SDL_GRAB_OFF);
+                UpdateUIAndControls();
+            } else {
+                eventQuit();
+            };
+        };
+        // process keyboard buttons
+        for (int i = 0; i < bindingsKeyCode.GetSize(); i++) {
+            if (keystate[bindingsKeyCode[i]] == 1 && bindingsKeyState[i] == 0) {
+                PTRACE(4, "Main\tkey[" << keyCodeToName[bindingsKeyCode[i]] << "/" << bindingsKeyCode[i] << "] down");
+                bindingsKeyState[i] = 1;
+                eventKeyDown(bindingsKeyCode[i]);
+            } else if (keystate[bindingsKeyCode[i]] == 0 && bindingsKeyState[i] == 1) {
+                PTRACE(4, "Main\tkey[" << keyCodeToName[bindingsKeyCode[i]] << "/" << bindingsKeyCode[i] << "] up");
+                bindingsKeyState[i] = 0;
+                eventKeyUp(bindingsKeyCode[i]);
+            };
+        };
+        int mouseState = SDL_GetRelativeMouseState(&x, &y);
+        // process mouse buttons
+        for (int i = 0; i < bindingsMouseCode.GetSize(); i++) {
+            int mouseButtonN = bindingsMouseCode[i]-MOUSE_B0;
+            int mouseMask    = 1 << mouseButtonN;
+            if ((mouseState & mouseMask) && bindingsMouseState[i] == 0) {
+                PTRACE(4, "Main\tmouse[" << mouseButtonN << "] down");
+                bindingsMouseState[i] = 1;
+                eventMouseDown(bindingsMouseCode[i]);
+            } else if (!(mouseState & mouseMask) && bindingsMouseState[i] == 1) {
+                PTRACE(4, "Main\tmouse[" << mouseButtonN << "] up");
+                bindingsMouseState[i] = 0;
+                eventMouseUp(bindingsMouseCode[i]);
+            };
+        };
+        // process mouse motions
+        if (frame > 14) {
+            // flush
+            x += xAccumulated;
+            y += yAccumulated;
+            // zero accumulated
+            xAccumulated = 0;
+            yAccumulated = 0;
+            if (x != 0 || y != 0) {
+                frame = frame < 100 ? frame : 100; // upper limit
+                dx = (double)x / frame * 0.8;
+                dy = ((double)y*-1) / frame * 2 * 0.8;
+                if (dx != 0 && dy != 0) {
+                    double tdx = dx > 0 ? dx : -dx;
+                    double tdy = dy > 0 ? dy : -dy;
+                    double k   = tdx/tdy;
+                    k         *= k;
+                    k         *= k;
+                    if (tdx < tdy) {
+                        PTRACE(1, "dx before weak: " << dx);
+                        dx *= k;
+                        PTRACE(1, "dx after weak: " << dx);
+                    } else {
+                        PTRACE(1, "dy before weak: " << dx);
+                        dy *= 1/k;
+                        PTRACE(1, "dy after weak: " << dx);
+                    };
+                };
+                // TODO acceleration
+                if (filter) {
+                    dx = (dx + old_dx) * 0.5;
+                    dy = (dy + old_dy) * 0.5;
+                };
+                PTRACE(1, "frame: " << frame << " X: " << (int)x << " Y: " << (int)y << " DX: " << dx << " DY: " << dy << " OLD_X: " << old_dx << " OLD_Y " << old_dy);
+                old_dx = dx;
+                old_dy = dy;
+                // find 100%
+                x = dx*100*100/10;
+                y = dy*100*100/10;
+                PTRACE(1, "SET X%: " << x << " Y% " << y);
+                if (x != old_x) {
+                    controller->pushAction(52, x);
+                    old_x = x;
+                };
+                if (y != old_y) {
+                    controller->pushAction(53, y);
+                    old_y = y;
+                };
+                frame = 0;
+            };
+        } else {
+            // accumulate
+            xAccumulated += x;
+            yAccumulated += y;
+        };
+        if (frame > 28 && (old_dx != 0 || old_dy !=0)) {
+            controller->pushAction(52, 0);
+            controller->pushAction(53, 0);
+            old_dx = 0;
+            old_dy = 0;
+            frame = 0;
+        }
+        /*
+         * calculate delay
+         */
+        m++;
+        tThen = tBase + tStep * m;
+        tNow = PTime();
+        // reset multiplier
+        if (m >= 255) {
+            m = 0;
+            tBase = tThen;
+        };
+        // step was too long (tThen less than tNow)
+        if (tNow.Compare(tThen) != -1) {
+            PTRACE(6, "Main\tnow: " << tNow.AsString("h:m:s.uuuu") << " then: " << tThen.AsString("h:m:s.uuuu") << " m: " << (int)m << " diff: " << (tNow - tThen).GetMilliSeconds() << "ms");
+            m += (tNow - tThen).GetMilliSeconds() / tStep.GetMilliSeconds() + 1; // number of steps + 1 step
+            tThen = tBase + tStep * m;
+            PTRACE(6, "Main\tcorrected then: " << tThen.AsString("h:m:s.uuuu") << " m: " << (int)m);
+        };
+        PTRACE(7, "Main\tstep " << (tThen - tNow).GetMilliSeconds() << "ms"); 
+    } while(!shutdown.Wait((tThen - tNow).GetMilliSeconds()));
 }
 
-void UIXBox::eventMouseUp() {
+// TODO FIX MOUSE_B0 and event MUST ALWAYS
+void UIXBox::eventMouseUp(int code) {
     if (active) {
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[MOUSE_B0];
-            pUIXBoxBinding->SomethingEnd(event);
-        } else if (event.button.button == SDL_BUTTON_RIGHT) {
-            UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[MOUSE_B2];
-            pUIXBoxBinding->SomethingEnd(event);
-        };
+        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[code];
+        pUIXBoxBinding->SomethingEnd(event);
     } else {
-        if (event.button.button == SDL_BUTTON_LEFT) {
+        if (code == MOUSE_B0) {
             // If the left mouse button was pressed
             SDL_WM_GrabInput(SDL_GRAB_ON);
             SDL_ShowCursor(SDL_DISABLE);
@@ -279,24 +412,10 @@ void UIXBox::eventMouseUp() {
     };
 }
 
-void UIXBox::eventMouseDown() {
+void UIXBox::eventMouseDown(int code) {
     if (active) {
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[MOUSE_B0];
-            pUIXBoxBinding->SomethingBegin(event);
-        } else if (event.button.button == SDL_BUTTON_RIGHT) {
-            UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[MOUSE_B2];
-            pUIXBoxBinding->SomethingBegin(event);
-        };
-    } else {
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            // If the left mouse button was pressed
-            SDL_WM_GrabInput(SDL_GRAB_ON);
-            SDL_ShowCursor(SDL_DISABLE);
-            active = PTrue;
-            UpdateUIAndControls();
-            return;
-        };
+        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[code];
+        pUIXBoxBinding->SomethingBegin(event);
     };
 }
 
@@ -313,28 +432,18 @@ void UIXBox::eventMouseMotion() {
     };
 }
 
-void UIXBox::eventKeyDown() {
+void UIXBox::eventKeyDown(int code) {
     if (active) {
-        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[event.key.keysym.sym];
+        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[code];
         if (pUIXBoxBinding) {
             pUIXBoxBinding->SomethingBegin(event);
         };
     };
-    if (event.key.keysym.sym == SDLK_ESCAPE) {
-        if (active) {
-            active = PFalse;
-            SDL_ShowCursor(SDL_ENABLE);
-            SDL_WM_GrabInput(SDL_GRAB_OFF);
-            UpdateUIAndControls();
-        } else {
-            eventQuit();
-        };
-    };
 }
 
-void UIXBox::eventKeyUp() {
+void UIXBox::eventKeyUp(int code) {
     if (active) {
-        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[event.key.keysym.sym];
+        UIXBoxBinding* pUIXBoxBinding = (UIXBoxBinding*)codeKeyToBinding[code];
         if (pUIXBoxBinding) {
             pUIXBoxBinding->SomethingEnd(event);
         };
@@ -344,7 +453,7 @@ void UIXBox::eventKeyUp() {
 //If the user has Xed out the window
 void UIXBox::eventQuit() {
     //Quit the program
-    quit = true;
+    shutdown.Signal();
 }
 
 void UIXBox::apply_surface( int x, int y, SDL_Surface* source, SDL_Surface* destination, SDL_Rect* clip) {
